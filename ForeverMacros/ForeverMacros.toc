@@ -1,9 +1,9 @@
-## Interface: 16001
+## Interface: 16001, 16002
 ## Title: ForeverMacros
 ## Notes: Ready-made class, race and utility macros for WoW Forever, installed with one click. /macros
 ## Notes-deDE: Fertige Klassen-, Rassen- und Utility-Makros für WoW Forever, mit einem Klick eingebaut. /macros
 ## Author: Karl
-## Version: 1.0.0
+## Version: 1.0.1
 ## SavedVariables: ForeverMacrosDB
 ## SavedVariablesPerCharacter: ForeverMacrosCharDB
 ## IconTexture: Interface\Icons\INV_Misc_Book_09

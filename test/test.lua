@@ -91,6 +91,7 @@ C_SpellBook = { IsSpellKnown = function(id) return W.known[id] == true end }
 C_Item = {
 	GetItemNameByID = function(id) return W.itemLoaded[id] and FIX.item[W.locale][id] or nil end,
 	GetItemIconByID = function(id) return 133000 + id % 1000 end,
+	RequestLoadItemDataByID = function(id) W.requested = (W.requested or 0) + 1 end,
 }
 Item = { CreateFromItemID = function(_, id)
 	return { IsItemEmpty = function() return FIX.item.enUS[id] == nil end,
@@ -240,6 +241,46 @@ do
 	check(#W.account == 0, "nothing in the general tab")
 end
 
+-- scenario: Blizzard's macro window is open -> nothing is written, callback still fires
+do
+	reset("deDE", "DRUID"); local ns = loadAddon(); W.known = knownFor(ns, "DRUID", true)
+	_G.MacroFrame = mock("Frame"); _G.MacroFrame._shown = true
+	local called = false
+	ns.Install(ns.Definitions(), function() called = true end); runTimers()
+	check(#W.char == 0 and #W.account == 0, "no writes while MacroFrame is open")
+	check(called, "onDone fires so the button re-enables")
+	check(W.printed[#W.printed]:find("Makrofenster"), "macro window message")
+	_G.MacroFrame._shown = false
+	ns.Install(ns.Definitions(), nil); runTimers()
+	check(#W.char > 0, "installs once the macro window is closed")
+	_G.MacroFrame = nil
+end
+
+-- scenario: general-tab macros never carry a rank; rank sync only edits the character tab
+do
+	reset("enUS", "WARRIOR"); local ns = loadAddon()
+	for _, ids in pairs(ns.SPELLS) do for _, id in ipairs(ids) do W.known[id] = false end end
+	-- know only the lowest Fishing / Find Herbs rank: a character macro would be ranked, a general one must not be
+	for _, key in ipairs({ "UTILITY:Fishing", "UTILITY:Find Herbs" }) do
+		local low, lowRank
+		for _, id in ipairs(ns.SPELLS[key]) do
+			local r = tonumber((FIX.spell.enUS[id] or { "", "" })[2]:match("(%d+)")) or 0
+			if not low or r < lowRank then low, lowRank = id, r end
+		end
+		W.known[low] = true
+	end
+	local util = {}
+	for _, d in ipairs(ns.MACROS) do if d.scope == "utility" then util[#util + 1] = d end end
+	for id in pairs(FIX.item.enUS) do W.itemLoaded[id] = true end
+	ns.Install(util, nil); runTimers()
+	for _, m in ipairs(W.account) do check(not m.body:find("%(Rank"), "general macro has a rank: " .. m.name .. " " .. m.body) end
+	local before = {}
+	for i, m in ipairs(W.account) do before[i] = m.body end
+	for _, ids in pairs(ns.SPELLS) do for _, id in ipairs(ids) do W.known[id] = true end end
+	fire("SPELLS_CHANGED"); runTimers()
+	for i, m in ipairs(W.account) do check(m.body == before[i], "sync changed a general macro: " .. m.name) end
+end
+
 -- scenario: combat
 do
 	reset("deDE", "DRUID", nil, true); local ns = loadAddon()
@@ -262,6 +303,7 @@ end
 do
 	reset("deDE", "DRUID"); local ns = loadAddon(); W.known = knownFor(ns, "DRUID", true); W.sets = true
 	ns.Toggle()
+	check((W.requested or 0) > 0, "item data requested when the window opens")
 	local f = _G.ForeverMacrosFrame
 	check(f and f:IsShown(), "window shows")
 	local cbs = {}
@@ -276,6 +318,11 @@ do
 	check(install and install:IsEnabled(), "install button enabled: " .. tostring(install and install._text))
 	install._scripts.OnClick(install); runTimers()
 	check(#W.char + #W.account == 5, "5 macros installed, got " .. (#W.char + #W.account))
+	check(install:IsEnabled(), "install button enabled again after installing")
+	for _ = 1, 50 do fire("UPDATE_MACROS") end
+	local queued = #W.timers
+	check(queued == 1, "50 UPDATE_MACROS coalesce into one refresh, got " .. queued)
+	runTimers()
 	SlashCmdList.FOREVERMACROS(""); check(not f:IsShown(), "/macros toggles")
 	fire("PLAYER_REGEN_DISABLED")
 end

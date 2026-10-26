@@ -7,6 +7,7 @@ local ADDON, ns = ...
 local DE = GetLocale() == "deDE"
 local L = DE and {
 	combat = "Im Kampf können keine Makros geändert werden.",
+	macroFrame = "Bitte erst Blizzards Makrofenster (/macro) schließen.",
 	itemsLate = "Einige Gegenstände sind noch nicht geladen; sie stehen mit englischem Namen im Makro:",
 	created = "%d neu, %d aktualisiert, %d unverändert.",
 	skipped = "Übersprungen (Name schon vergeben, nicht von ForeverMacros oder von dir geändert): %s",
@@ -16,6 +17,7 @@ local L = DE and {
 	synced = "Ränge aktualisiert: %s",
 } or {
 	combat = "Macros cannot be changed in combat.",
+	macroFrame = "Please close Blizzard's macro window (/macro) first.",
 	itemsLate = "Some items have not loaded yet; they are in the macro with their English name:",
 	created = "%d created, %d updated, %d unchanged.",
 	skipped = "Skipped (name already taken, not made by ForeverMacros or edited by you): %s",
@@ -109,7 +111,8 @@ function ns.Render(def)
 			icon = icon or C_Item.GetItemIconByID(id)
 			return ItemText(id) or ("item:" .. ref)
 		end
-		local text, known = SpellText(ref, kind == "P")
+		-- general-tab macros are shared by all characters: never pin a rank there (it would differ per character)
+		local text, known = SpellText(ref, kind == "P" or def.scope == "utility")
 		if not text then broken = true; return "" end
 		if not known then missing[#missing + 1] = text end
 		if not icon then
@@ -251,10 +254,17 @@ local function LoadItems(defs, done)
 	if count == 0 or not next(pending) then finish() else C_Timer.After(5, finish) end
 end
 
+-- Blizzard's macro window remembers its selection by position and saves the edit box into that position when it
+-- closes; creating macros while it is open re-sorts the list under it, so nothing is written while it is shown.
+local function MacroFrameOpen() return MacroFrame and MacroFrame:IsShown() end
+ns.MacroFrameOpen = MacroFrameOpen
+
 function ns.Install(defs, onDone)
-	if InCombatLockdown() then ns.Print(L.combat); return end
+	if InCombatLockdown() then ns.Print(L.combat); if onDone then onDone() end; return end
+	if MacroFrameOpen() then ns.Print(L.macroFrame); if onDone then onDone() end; return end
 	LoadItems(defs, function(late)
-		if InCombatLockdown() then ns.Print(L.combat); return end
+		if InCombatLockdown() then ns.Print(L.combat); if onDone then onDone() end; return end
+		if MacroFrameOpen() then ns.Print(L.macroFrame); if onDone then onDone() end; return end
 		local result = { created = 0, updated = 0, unchanged = 0, skipped = {}, full = {}, failed = {} }
 		for _, def in ipairs(defs) do WriteOne(def, result) end
 		ns.Print(L.created:format(result.created, result.updated, result.unchanged))
@@ -285,17 +295,22 @@ end
 local function SyncRanks()
 	syncQueued = false
 	if InCombatLockdown() then syncPending = true; return end
-	if MacroFrame and MacroFrame:IsShown() then return end   -- never edit under the player's open macro window
+	if MacroFrameOpen() then return end   -- never edit under the player's open macro window
+	-- character tab only (general-tab macros carry no ranks); one pass over the tab, then edits by name
+	local _, maxAccount, _, maxChar = ns.Limits()
+	local live = {}
+	for index = maxAccount + 1, maxAccount + maxChar do
+		local name, _, body = GetMacroInfo(index)
+		if name then live[name] = body end
+	end
 	local changed = {}
-	for _, perChar in ipairs({ true, false }) do
-		for name, record in pairs(Store(perChar)) do
-			local def = byId[record.id]
-			local index, current = Find(name, perChar)
-			if def and index and current == record.body and ItemsCached(def) then
-				local body, icon = ns.Render(def)
-				if body and body ~= record.body and pcall(EditMacro, index, name, icon, body) then
-					Remember(name, perChar, def.id); changed[#changed + 1] = name
-				end
+	for name, record in pairs(Store(true)) do
+		local def = byId[record.id]
+		if def and live[name] == record.body and ItemsCached(def) then
+			local body, icon = ns.Render(def)
+			local index = body and body ~= record.body and Find(name, true)
+			if index and pcall(EditMacro, index, name, icon, body) then
+				Remember(name, true, def.id); changed[#changed + 1] = name
 			end
 		end
 	end

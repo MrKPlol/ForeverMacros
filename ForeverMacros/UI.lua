@@ -102,7 +102,16 @@ local function Header(i)
 	return header
 end
 
-local function Refresh()
+local Refresh
+local refreshQueued = false
+-- UPDATE_MACROS fires once per created macro: coalesce them into one refresh.
+local function QueueRefresh()
+	if refreshQueued then return end
+	refreshQueued = true
+	C_Timer.After(0.2, function() refreshQueued = false; Refresh() end)
+end
+
+function Refresh()
 	if not frame or not frame:IsShown() then return end
 	defs = ns.Definitions()
 	wipe(byGroup)
@@ -190,13 +199,16 @@ local function Build()
 		local list = SelectedDefs()
 		if #list == 0 then ns.Print(T.empty); return end
 		installButton:Disable()
-		ns.Install(list, Refresh)
-		C_Timer.After(6, UpdateFooter)
+		ns.Install(list, function() Refresh() end)
 	end)
 
-	frame:SetScript("OnShow", Refresh)
+	frame:SetScript("OnShow", function()
+		-- ask the server for item data now, so tooltips and the install show localized item names
+		if C_Item.RequestLoadItemDataByID then for id in pairs(ns.ITEMS) do C_Item.RequestLoadItemDataByID(id) end end
+		Refresh()
+	end)
 	frame:SetScript("OnEvent", function(_, event)
-		if event == "UPDATE_MACROS" then Refresh() else UpdateFooter() end
+		if event == "UPDATE_MACROS" then QueueRefresh() else UpdateFooter() end
 	end)
 	frame:RegisterEvent("UPDATE_MACROS")
 	frame:RegisterEvent("PLAYER_REGEN_DISABLED")
