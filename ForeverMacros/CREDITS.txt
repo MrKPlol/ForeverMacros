@@ -1,0 +1,8 @@
+ForeverMacros
+
+Macro texts adapted from:
+- Classic WoW Forever, https://classicwowforever.com/macros/ (CC BY 4.0, https://creativecommons.org/licenses/by/4.0/)
+  Changes: spell and item names are resolved from IDs in the client's language, unranked names are raised to the
+  highest rank the character knows, some macros were shortened to stay within 255 characters in every language.
+- Zockify, https://www.zockify.com/forever/druid/macros/ (druid ideas)
+Spell, item and rank data: WoW Forever 1.60.1.70532 client tables (via wago.tools).

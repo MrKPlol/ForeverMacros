@@ -1,0 +1,15 @@
+## Interface: 16001
+## Title: ForeverMacros
+## Notes: Ready-made class, race and utility macros for WoW Forever, installed with one click. /macros
+## Notes-deDE: Fertige Klassen-, Rassen- und Utility-Makros für WoW Forever, mit einem Klick eingebaut. /macros
+## Author: Karl
+## Version: 1.0.0
+## SavedVariables: ForeverMacrosDB
+## SavedVariablesPerCharacter: ForeverMacrosCharDB
+## IconTexture: Interface\Icons\INV_Misc_Book_09
+## AddonCompartmentFunc: ForeverMacros_OnAddonCompartmentClick
+## Category: Action Bars
+
+Data.lua
+Core.lua
+UI.lua
