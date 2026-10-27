@@ -7,11 +7,27 @@ from macros import MACROS, RACIALS, RACIAL_NAMES, UTILITY
 CLASSES = [("DRUID", "Druide / Druid"), ("WARRIOR", "Krieger / Warrior"), ("PALADIN", "Paladin"), ("HUNTER", "Jäger / Hunter"),
            ("ROGUE", "Schurke / Rogue"), ("PRIEST", "Priester / Priest"), ("SHAMAN", "Schamane / Shaman"),
            ("MAGE", "Magier / Mage"), ("WARLOCK", "Hexenmeister / Warlock")]
-GROUPS = [("general", "Allgemein / General"), ("equip", "Ausrüstung / Equipment"), ("items", "Gegenstände / Items"),
-          ("quests", "Quests"), ("professions", "Berufe / Professions")]
+GROUPS = [("general", "Allgemein / General"), ("equip", "Ausrüstung / Equipment"),
+          ("quests", "Quests"), ("engineering", "Ingenieurskunst / Engineering"), ("professions", "Berufe / Professions")]
+
+
+# Default target options per kind (mirror of ns.TARGETS defaults in Core.lua): what a fresh install writes.
+DEFAULT_TARGETS = {
+    "help": ["@mouseover,help,nodead", "help,nodead", "@player"], "harm": ["@mouseover,harm,nodead", "harm,nodead"],
+    "any": ["@mouseover,exists,nodead", "exists,nodead"], "dead": ["@mouseover,help,dead", "help,dead"],
+    "unit": [], "ground": ["@cursor"],
+}
+
+
+def target(m):
+    kind, cond = m.group(1), m.group(2) or ""
+    out = "".join("[" + ",".join(x for x in (cond, c) if x) + "]" for c in DEFAULT_TARGETS[kind])
+    if not out and cond: out = f"[{cond}]"
+    return out + " " if out else ""
 
 
 def plain(body):
+    body = re.sub(r"\{T:([a-z]+)(?::([^{}]*))?\} ?", target, body)
     body = re.sub(r"\{=?([^{}|]+)(\|[^{}]*)?\}", r"\1", body)   # {A|B} -> A (the addon takes the first one you know)
     return re.sub(r"<([^<>]+)>", r"\1", body)
 
@@ -43,6 +59,12 @@ add("- Klassen-, Rassen- und Ausrüstungsset-Makros kommen in den **Charakter-Ta
 add("- Zauber- und Gegenstandsnamen werden in der **Sprache deines Clients** eingesetzt (Deutsch, Englisch, …).")
 add("- Forever hat die Zauberränge neu angelegt: ein Name ohne Rang kann auf einen Rang zeigen, den du noch nicht kannst. "
     "Das Addon setzt den **höchsten Rang ein, den du kennst** (z. B. `Charge(Rank 1)`) und zieht ihn beim Leveln automatisch nach.")
+add("- **Ziel-Optionen:** hinter vielen Makros sitzen kleine Kästchen: **MO** (Mouseover), **Fokus**, **Ziel**, **Ich** "
+    "bzw. bei Boden-Zaubern und Bomben **Maus** (sofort an der Mausposition) oder **Ich** (unter dir). Es gibt nur die Optionen, "
+    "die der Zauber oder Gegenstand in Forever zulässt. Die Liste unten zeigt die Standard-Auswahl.")
+add("- Kästchen am **Gruppenkopf** hakt die ganze Kategorie an oder ab.")
+add("- **Ingenieurskunst:** alle Gegenstände mit Benutzen-Effekt aus den Forever-Tabellen geprüft, dazu die neuen Gürtel-Tinker "
+    "(Teleport, Nitro Boosts, Magnetic Displacement) über `/use 6`.")
 add("- Überschreibt **nie** Makros, die du selbst angelegt oder geändert hast, und ändert nichts im Kampf.")
 add("- `A|B` in der Liste unten heißt: das Addon nimmt den ersten Zauber, den du kannst (z. B. Terrorbärgestalt, sonst Bärengestalt). "
     "In der Liste steht jeweils der erste.")
@@ -65,12 +87,11 @@ add("### Rassen / Races")
 add("")
 add(f"<details><summary><b>Rassenfähigkeiten / Racial abilities</b> ({len(RACIALS)})</summary>")
 add("")
-add("Im Fenster erscheinen nur die Fähigkeiten, die dein Charakter hat. Jedes Makro: `#showtooltip <Fähigkeit>` + `/cast <Fähigkeit>`.")
+add("Im Fenster erscheinen nur die, die dein Charakter hat. Nur Kombinationen, die mehr können als die Fähigkeit allein.")
 add("")
-for mid, spell in RACIALS:
-    nde, nen = RACIAL_NAMES.get(mid, (None, None))
-    add(f"- {spell}" + (f" (Makroname / macro name: {nde} / {nen})" if nde else ""))
-add("")
+for mid, body, note in RACIALS:
+    spell = re.search(r"\{([^{}|=]+)\}", body).group(1)
+    add(entry(spell, spell, body, note))
 add("</details>")
 add("")
 add("### Utility (allgemeiner Tab / general tab)")

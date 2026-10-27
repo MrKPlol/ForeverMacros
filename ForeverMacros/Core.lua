@@ -102,10 +102,61 @@ local function ItemText(id)
 	return C_Item.GetItemNameByID(id) or ns.ITEMS[id]
 end
 
+-- Unit conditions the player picks per macro ({T:kind} or {T:kind:cond} in a body). Clauses in priority order;
+-- build.py mirrors these to check the worst-case length. ground options exclude each other (no option = normal
+-- reticle); unit always ends with a plain clause so self-targeted gadgets still fire.
+ns.TARGETS = {
+	help = { order = { "mo", "focus", "tgt", "self" }, default = { mo = true, tgt = true, self = true },
+		clause = { mo = "@mouseover,help,nodead", focus = "@focus,help,nodead", tgt = "help,nodead", self = "@player" } },
+	harm = { order = { "mo", "focus", "tgt" }, default = { mo = true, tgt = true },
+		clause = { mo = "@mouseover,harm,nodead", focus = "@focus,harm,nodead", tgt = "harm,nodead" } },
+	any = { order = { "mo", "focus", "tgt" }, default = { mo = true, tgt = true },
+		clause = { mo = "@mouseover,exists,nodead", focus = "@focus,exists,nodead", tgt = "exists,nodead" } },
+	dead = { order = { "mo", "focus", "tgt" }, default = { mo = true, tgt = true },
+		clause = { mo = "@mouseover,help,dead", focus = "@focus,help,dead", tgt = "help,dead" } },
+	unit = { order = { "mo", "focus" }, default = {}, fallback = true,
+		clause = { mo = "@mouseover,exists,nodead", focus = "@focus,exists,nodead" } },
+	ground = { order = { "cursor", "self" }, default = { cursor = true }, exclusive = true,
+		clause = { cursor = "@cursor", self = "@player" } },
+}
+
+local function TargetStore(def) return def.scope == "utility" and ForeverMacrosDB.targets or ForeverMacrosCharDB.targets end
+
+-- The options in effect for a macro: the player's choice, else the kind's default.
+function ns.TargetChoice(def)
+	local kind = ns.TARGETS[def.target]
+	if not kind then return nil end
+	return TargetStore(def)[def.id] or kind.default
+end
+
+function ns.SetTargetOption(def, option, value)
+	local kind = ns.TARGETS[def.target]
+	local choice = {}
+	if not kind.exclusive then for k, v in pairs(ns.TargetChoice(def)) do choice[k] = v end end
+	choice[option] = value or nil
+	TargetStore(def)[def.id] = choice
+end
+
+local function TargetText(def, cond)
+	local kind, choice = ns.TARGETS[def.target], ns.TargetChoice(def)
+	if not kind then return "" end
+	local prefix = cond ~= "" and cond .. "," or ""
+	local out = {}
+	for _, option in ipairs(kind.order) do
+		if choice[option] then out[#out + 1] = "[" .. prefix .. kind.clause[option] .. "]" end
+	end
+	if (#out > 0 and kind.fallback) or (#out == 0 and cond ~= "") then out[#out + 1] = "[" .. cond .. "]" end
+	return table.concat(out)
+end
+
 -- Returns body, icon, missing (spell names the character does not know yet), or nil if a spell is unknown to the client.
 function ns.Render(def)
 	local missing, broken, icon = {}, false, nil
-	local body = def.body:gsub("{(%a):([^}]+)}", function(kind, ref)
+	local body = def.body:gsub("{T:(%a+):?([^}]*)} ?", function(_, cond)
+		local text = TargetText(def, cond)
+		return text ~= "" and text .. " " or ""
+	end)
+	body = body:gsub("{(%a):([^}]+)}", function(kind, ref)
 		if kind == "I" then
 			local id = tonumber(ref)
 			icon = icon or C_Item.GetItemIconByID(id)
@@ -326,6 +377,8 @@ events:SetScript("OnEvent", function(self, event, arg)
 		ForeverMacrosCharDB = ForeverMacrosCharDB or {}
 		ForeverMacrosCharDB.made = ForeverMacrosCharDB.made or {}
 		ForeverMacrosCharDB.selected = ForeverMacrosCharDB.selected or {}
+		ForeverMacrosDB.targets = ForeverMacrosDB.targets or {}
+		ForeverMacrosCharDB.targets = ForeverMacrosCharDB.targets or {}
 		for _, def in ipairs(ns.MACROS) do byId[def.id] = def end
 		self:UnregisterEvent("ADDON_LOADED")
 		self:RegisterEvent("SPELLS_CHANGED")

@@ -8,7 +8,24 @@ from macros import MACROS, RACIALS, RACIAL_NAMES, UTILITY
 DB, OUT = sys.argv[1], sys.argv[2]
 CLASS_ID = {"WARRIOR": 1, "PALADIN": 2, "HUNTER": 3, "ROGUE": 4, "PRIEST": 5, "SHAMAN": 7, "MAGE": 8, "WARLOCK": 9, "DRUID": 11}
 RANK_SUFFIX = len("(Rang 12)")
-TOKEN = re.compile(r"\{(=?)([^{}]+)\}|<([^<>]+)>")
+TOKEN = re.compile(r"\{(=?)(?!T:)([^{}]+)\}|<([^<>]+)>")
+TARGET = re.compile(r"\{T:([a-z]+)(?::([^{}]*))?\}")
+# Mirror of ns.TARGETS in Core.lua: clause per option, in priority order. ground options exclude each other.
+CLAUSES = {
+    "help": ["@mouseover,help,nodead", "@focus,help,nodead", "help,nodead", "@player"],
+    "harm": ["@mouseover,harm,nodead", "@focus,harm,nodead", "harm,nodead"],
+    "any": ["@mouseover,exists,nodead", "@focus,exists,nodead", "exists,nodead"],
+    "dead": ["@mouseover,help,dead", "@focus,help,dead", "help,dead"],
+    "unit": ["@mouseover,exists,nodead", "@focus,exists,nodead", ""],   # last: always, plain
+    "ground": ["@cursor", "@player"],
+}
+
+
+def target_worst(kind, cond):
+    """Longest text a {T:kind:cond} token can become with any option set."""
+    def clause(c): return "[" + ",".join(x for x in (cond, c) if x) + "]"
+    if kind == "ground": return max(len(clause(c)) for c in CLAUSES[kind])
+    return sum(len(clause(c)) for c in CLAUSES[kind])
 
 
 def rows(name): return list(csv.DictReader(open(os.path.join(DB, name), encoding="utf-8")))
@@ -59,7 +76,13 @@ def lua_str(s): return '"' + s.replace("\\", "\\\\").replace('"', '\\"').replace
 
 def process(mid, cls, name_de, name_en, body, note):
     if len(name_de.encode()) > 16 or len(name_en.encode()) > 16: errors.append(f"{mid}: name over 16 bytes ({name_de!r}/{name_en!r})")
-    worst = 0; parts = []; pos = 0; refs = []
+    kinds = {m.group(1) for m in TARGET.finditer(body)}
+    for k in kinds:
+        if k not in CLAUSES: errors.append(f"{mid}: unknown target kind {k!r}")
+    if len(kinds) > 1: errors.append(f"{mid}: several target kinds {sorted(kinds)}")
+    worst = sum(target_worst(m.group(1), m.group(2)) for m in TARGET.finditer(body) if m.group(1) in CLAUSES)
+    body = TARGET.sub("", body)
+    parts = []; pos = 0; refs = []
     for m in TOKEN.finditer(body):
         worst += len(body[pos:m.start()].encode()); pos = m.end()
         plain, sname, iname = m.group(1), m.group(2), m.group(3)
@@ -87,10 +110,10 @@ def process(mid, cls, name_de, name_en, body, note):
 out_macros = []
 for mid, cls, nde, nen, body, note in MACROS:
     w, refs = process(mid, cls, nde, nen, body, note); out_macros.append((mid, "class", cls, nde, nen, body, note, w))
-for mid, spell in RACIALS:
-    body = "#showtooltip {%s}\n/cast {%s}" % (spell, spell)
+for mid, body, note in RACIALS:
+    spell = re.search(r"\{([^{}|=]+)\}", body).group(1)
     nde, nen = RACIAL_NAMES.get(mid, (None, None))
-    w, refs = process(mid, "RACE", nde or spell, nen or spell, body, None); out_macros.append((mid, "race", "RACE", nde, nen, body, None, w))
+    w, refs = process(mid, "RACE", nde or spell, nen or spell, body, note); out_macros.append((mid, "race", "RACE", nde, nen, body, note, w))
 for mid, group, nde, nen, body, note in UTILITY:
     w, refs = process(mid, "UTILITY", nde, nen, body, note); out_macros.append((mid, "utility", group, nde, nen, body, note, w))
 
@@ -107,7 +130,8 @@ for scope in ("class", "utility"):
 
 # racial macro names (spell names in both languages) must not collide with class or utility names
 racial_names = set()
-for mid, spell in RACIALS:
+for mid, rbody, _ in RACIALS:
+    spell = re.search(r"\{([^{}|=]+)\}", rbody).group(1)
     nde, nen = RACIAL_NAMES.get(mid, (None, None))
     for sid in by_name.get(spell, []):
         if any(skill_cat.get(l) == 9 for l, _ in sla.get(sid, [])):
@@ -139,7 +163,8 @@ with open(OUT, "w", encoding="utf-8") as f:
         tb = TOKEN.sub(sub, body)
         f.write(f"\t{{ id = {lua_str(mid)}, scope = {lua_str(scope)}, group = {lua_str(group)}, "
                 + (f"nameDE = {lua_str(nde)}, nameEN = {lua_str(nen)}, " if nde else "")
-                + f"body = {lua_str(tb)}" + (f", note = {lua_str(note)}" if note else "") + " },\n")
+                + f"body = {lua_str(tb)}"
+                + (f", target = {lua_str(TARGET.search(body).group(1))}" if TARGET.search(body) else "") + (f", note = {lua_str(note)}" if note else "") + " },\n")
     f.write("}\n")
 print(f"OK: {len(out_macros)} macros, {len(spells)} spells, {len(items)} items; longest worst case "
       f"{max(m[7] for m in out_macros)} bytes ({max(out_macros, key=lambda m: m[7])[0]})")

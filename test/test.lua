@@ -292,11 +292,11 @@ end
 -- scenario: items not loaded yet -> English fallback announced, no failure
 do
 	reset("deDE", "WARRIOR"); local ns = loadAddon()
-	local def; for _, d in ipairs(ns.MACROS) do if d.id == "u_hearth" then def = d end end
+	local def; for _, d in ipairs(ns.MACROS) do if d.id == "u_bomb" then def = d end end
 	ns.Install({ def }, nil); runTimers()
 	local _, _, body = GetMacroInfo(1)
-	print("German hearthstone macro: " .. tostring(body))
-	check(body and body:find("Ruhestein"), "item name localized after load")
+	print("German bomb macro: " .. tostring(body))
+	check(body and body:find("Thoriumgranate", 1, true) and body:find("[@cursor]", 1, true), "item name localized after load")
 end
 
 -- scenario: UI opens, lists, selects, installs
@@ -307,7 +307,7 @@ do
 	local f = _G.ForeverMacrosFrame
 	check(f and f:IsShown(), "window shows")
 	local cbs = {}
-	for _, fr in ipairs(frames) do if fr._kind == "CheckButton" and fr._shown and fr.def then cbs[#cbs + 1] = fr end end
+	for _, fr in ipairs(frames) do if fr._kind == "CheckButton" and fr._shown and type(rawget(fr, "def")) == "table" then cbs[#cbs + 1] = fr end end
 	check(#cbs > 30, "rows listed: " .. #cbs)
 	local seenSet = false
 	for _, cb in ipairs(cbs) do if cb.def.scope == "set" then seenSet = true end end
@@ -323,6 +323,53 @@ do
 	local queued = #W.timers
 	check(queued == 1, "50 UPDATE_MACROS coalesce into one refresh, got " .. queued)
 	runTimers()
+	-- target option boxes: Rejuvenation (help) shows MO/Focus/Target/Self, ticking Focus changes the body
+	local rejuv, rejuvDef
+	for _, cb in ipairs(cbs) do if cb.def.id == "dru_rejuv" then rejuv, rejuvDef = cb, cb.def end end
+	local boxes = {}
+	for _, b in ipairs(rejuv.options) do if b:IsShown() then boxes[b.option] = b end end
+	check(boxes.mo and boxes.focus and boxes.tgt and boxes.self and not boxes.cursor, "help macro offers mo/focus/target/self")
+	check(boxes.mo:GetChecked() and not boxes.focus:GetChecked(), "help default: mouseover on, focus off")
+	check(ns.Render(rejuvDef):find("[@mouseover,help,nodead][help,nodead][@player]", 1, true), "default help body: " .. ns.Render(rejuvDef))
+	boxes.focus:Click(); boxes.mo:Click(); boxes.self:Click()
+	local b = ns.Render(rejuvDef)
+	check(b:find("/cast [@focus,help,nodead][help,nodead] ", 1, true), "focus+target body: " .. b)
+	check(ForeverMacrosCharDB.selected.dru_rejuv == true, "changed macro gets selected")
+	boxes.focus:Click(); boxes.tgt:Click()
+	check(ns.Render(rejuvDef):find("/cast Verjüngung") or ns.Render(rejuvDef):find("/cast Rejuv"), "no option: plain cast without double space: " .. ns.Render(rejuvDef))
+	check(not ns.Render(rejuvDef):find("  "), "no double space")
+	-- ground: cursor and self exclude each other
+	local hur
+	for _, cb in ipairs(cbs) do if cb.def.id == "dru_hurricane" then hur = cb end end
+	local gb = {}
+	for _, x in ipairs(hur.options) do if x:IsShown() then gb[x.option] = x end end
+	check(gb.cursor and gb.self and not gb.mo, "ground offers cursor/self only")
+	gb.self:Click()
+	local hb = ns.Render(hur.def)
+	check(hb:find("[@player]", 1, true) and not hb:find("@cursor"), "ground self replaces cursor: " .. hb)
+	-- installed macro whose option changed shows the changed status, install updates it
+	for _, cb in ipairs(cbs) do if cb.def.id ~= "dru_hurricane" then ForeverMacrosCharDB.selected[cb.def.id] = nil end end
+	ForeverMacrosCharDB.selected.dru_hurricane = true
+	install._scripts.OnClick(install); runTimers()
+	gb.cursor:Click(); runTimers()
+	check(hur.status:GetText():find("neu einbauen"), "changed status shown: " .. tostring(hur.status:GetText()))
+	install._scripts.OnClick(install); runTimers()
+	local found
+	for _, m in ipairs(W.char) do if m.body:find("@cursor") and m.body:find("Hurrikan") then found = true end end
+	check(found, "reinstall writes the cursor version")
+	-- category box selects the whole group
+	local header
+	for _, fr in ipairs(frames) do if rawget(fr, "group") == "engineering" and fr._shown then header = fr end end
+	check(header ~= nil, "engineering header box")
+	if header then
+		header:Click()
+		local all = true
+		for _, d in ipairs(ns.Definitions()) do if d.group == "engineering" and not ForeverMacrosCharDB.selected[d.id] then all = false end end
+		check(all, "header selects every engineering macro")
+		check(header:GetChecked(), "header shows checked")
+		header:Click()
+		for _, d in ipairs(ns.Definitions()) do if d.group == "engineering" then check(not ForeverMacrosCharDB.selected[d.id], "header clears " .. d.id) end end
+	end
 	SlashCmdList.FOREVERMACROS(""); check(not f:IsShown(), "/macros toggles")
 	fire("PLAYER_REGEN_DISABLED")
 end

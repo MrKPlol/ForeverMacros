@@ -3,24 +3,49 @@ local ADDON, ns = ...
 
 local T = ns.DE and {
 	title = "ForeverMacros", all = "Alle", none = "Keine", install = "Einbauen (%d)",
-	class = "Klasse: %s", race = "Rasse", general = "Allgemein", equip = "Ausrüstung", items = "Gegenstände",
-	quests = "Quests", professions = "Berufe", sets = "Ausrüstungssets",
-	installed = "eingebaut", taken = "Name belegt", unlearned = "noch nicht gelernt",
+	class = "Klasse: %s", race = "Rasse", general = "Allgemein", equip = "Ausrüstung",
+	quests = "Quests", engineering = "Ingenieurskunst", professions = "Berufe", sets = "Ausrüstungssets",
+	installed = "eingebaut", taken = "Name belegt", unlearned = "noch nicht gelernt", changed = "geändert: neu einbauen",
+	opt = { mo = "MO", focus = "Fokus", tgt = "Ziel", self = "Ich", cursor = "Maus" },
+	optTip = {
+		mo = "Mouseover: wirkt auf die Einheit unter dem Mauszeiger (Welt oder Rahmen).",
+		focus = "Fokus: wirkt auf dein Fokusziel (/focus).",
+		tgt = "Ziel: wirkt auf dein aktuelles Ziel.",
+		self = "Ich: wirkt auf dich selbst, wenn nichts davor passt.",
+		cursor = "Maus: landet sofort an der Mausposition, ohne Zielkreis.",
+		groundSelf = "Ich: landet sofort unter dir, ohne Zielkreis.",
+	},
+	optOrder = "Reihenfolge: MO > Fokus > Ziel > Ich. Nichts angehakt: normales Verhalten.",
+	optGround = "Nur eins geht. Nichts angehakt: normaler Zielkreis.",
+	optUnit = "Ohne Haken wirkt es wie gewohnt; mit Haken zuerst auf die gewählte Einheit.",
 	slots = "Charakter %d/%d   Allgemein %d/%d", charTab = "Tab: Charakter", accountTab = "Tab: Allgemein (alle Charaktere)",
 	combat = "Im Kampf gesperrt", empty = "Nichts ausgewählt.",
 	hint = "Klasse, Rasse und Sets landen im Charakter-Tab, alles andere im allgemeinen Tab.",
 } or {
 	title = "ForeverMacros", all = "All", none = "None", install = "Install (%d)",
-	class = "Class: %s", race = "Race", general = "General", equip = "Equipment", items = "Items",
-	quests = "Quests", professions = "Professions", sets = "Equipment sets",
-	installed = "installed", taken = "name taken", unlearned = "not learned yet",
+	class = "Class: %s", race = "Race", general = "General", equip = "Equipment",
+	quests = "Quests", engineering = "Engineering", professions = "Professions", sets = "Equipment sets",
+	installed = "installed", taken = "name taken", unlearned = "not learned yet", changed = "changed: install again",
+	opt = { mo = "MO", focus = "Focus", tgt = "Target", self = "Self", cursor = "Cursor" },
+	optTip = {
+		mo = "Mouseover: hits the unit under the mouse pointer (world or frames).",
+		focus = "Focus: hits your focus (/focus).",
+		tgt = "Target: hits your current target.",
+		self = "Self: hits you when nothing before it applies.",
+		cursor = "Cursor: lands at the mouse position at once, no reticle.",
+		groundSelf = "Self: lands at your feet at once, no reticle.",
+	},
+	optOrder = "Order: MO > Focus > Target > Self. Nothing ticked: normal behaviour.",
+	optGround = "Only one at a time. Nothing ticked: normal reticle.",
+	optUnit = "Unticked it works as usual; ticked it goes to the chosen unit first.",
 	slots = "Character %d/%d   General %d/%d", charTab = "Tab: Character", accountTab = "Tab: General (all characters)",
 	combat = "Locked in combat", empty = "Nothing selected.",
 	hint = "Class, race and set macros go to the character tab, everything else to the general tab.",
 }
 
-local ORDER = { "class", "race", "general", "equip", "items", "quests", "professions", "sets" }
+local ORDER = { "class", "race", "general", "equip", "quests", "engineering", "professions", "sets" }
 local ROW, HEADER = 24, 26
+local OPT_X, OPT_W, STATUS_X = 190, 62, 440   -- target option boxes and status column, from the row's left edge
 
 local frame, content, installButton, slotText
 local rows, headers, defs, byGroup = {}, {}, {}, {}
@@ -53,7 +78,9 @@ local function Status(def)
 	local status
 	if index then
 		local record = store[name]
-		status = (record and record.body == current) and ("|cff40c040" .. T.installed .. "|r") or ("|cffff9020" .. T.taken .. "|r")
+		if not record or record.body ~= current then status = "|cffff9020" .. T.taken .. "|r"
+		elseif def.scope ~= "set" and ns.Render(def) ~= current then status = "|cffffd200" .. T.changed .. "|r"
+		else status = "|cff40c040" .. T.installed .. "|r" end
 	end
 	if def.scope ~= "set" then
 		local _, _, missing = ns.Render(def)
@@ -82,8 +109,12 @@ local function Row(i)
 	row = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
 	row:SetSize(24, 24)
 	row.Text:SetFontObject("GameFontHighlight")
+	row.Text:SetWidth(OPT_X - 30)
+	row.Text:SetWordWrap(false)
+	row.Text:SetJustifyH("LEFT")
 	row.status = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-	row.status:SetPoint("LEFT", row.Text, "RIGHT", 8, 0)
+	row.status:SetPoint("LEFT", row, "LEFT", STATUS_X, 0)
+	row.options = {}
 	row:SetScript("OnClick", function(self)
 		Selected()[self.def.id] = self:GetChecked() and true or nil
 		UpdateFooter()
@@ -94,15 +125,56 @@ local function Row(i)
 	return row
 end
 
+local Refresh
+
+local function ShowOptionTooltip(box)
+	local kind = ns.TARGETS[box.row.def.target]
+	GameTooltip:SetOwner(box, "ANCHOR_RIGHT")
+	GameTooltip:AddLine(T.opt[box.option])
+	local tip = (kind.exclusive and box.option == "self") and T.optTip.groundSelf or T.optTip[box.option]
+	GameTooltip:AddLine(tip, 1, 1, 1, true)
+	GameTooltip:AddLine(kind.exclusive and T.optGround or kind.fallback and T.optUnit or T.optOrder, 0.6, 0.6, 0.6, true)
+	GameTooltip:Show()
+end
+
+-- Small tick boxes behind a row: which units the macro aims at (only the options its spell or item allows).
+local function OptionBox(row, i)
+	local box = row.options[i]
+	if box then return box end
+	box = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
+	box:SetSize(18, 18)
+	box.Text:SetFontObject("GameFontHighlightSmall")
+	box.row = row
+	box:SetPoint("LEFT", row, "LEFT", OPT_X + (i - 1) * OPT_W, 0)
+	box:SetScript("OnClick", function(self)
+		local def = self.row.def
+		ns.SetTargetOption(def, self.option, self:GetChecked())
+		Selected()[def.id] = true   -- a changed macro must be installed again to take effect
+		Refresh()
+	end)
+	box:SetScript("OnEnter", ShowOptionTooltip)
+	box:SetScript("OnLeave", function() GameTooltip:Hide() end)
+	row.options[i] = box
+	return box
+end
+
+local function GroupDefs(group) return byGroup[group] or {} end
+
 local function Header(i)
 	local header = headers[i]
 	if header then return header end
-	header = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+	header = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
+	header:SetSize(24, 24)
+	header.Text:SetFontObject("GameFontNormalLarge")
+	header:SetScript("OnClick", function(self)
+		local value = self:GetChecked() and true or nil
+		for _, def in ipairs(GroupDefs(self.group)) do Selected()[def.id] = value end
+		Refresh()
+	end)
 	headers[i] = header
 	return header
 end
 
-local Refresh
 local refreshQueued = false
 -- UPDATE_MACROS fires once per created macro: coalesce them into one refresh.
 local function QueueRefresh()
@@ -129,8 +201,12 @@ function Refresh()
 		if list and #list > 0 then
 			h = h + 1
 			local header = Header(h)
-			header:SetText(group == "class" and T.class:format(className or "") or T[group])
-			header:ClearAllPoints(); header:SetPoint("TOPLEFT", 4, y); header:Show()
+			header.group = group
+			header.Text:SetText(group == "class" and T.class:format(className or "") or T[group])
+			local all = true
+			for _, def in ipairs(list) do if not Selected()[def.id] then all = false end end
+			header:SetChecked(all)
+			header:ClearAllPoints(); header:SetPoint("TOPLEFT", 0, y); header:Show()
 			y = y - HEADER
 			for _, def in ipairs(list) do
 				r = r + 1
@@ -140,6 +216,18 @@ function Refresh()
 				row.Text:SetText(name)
 				row.status:SetText(status or "")
 				row:SetChecked(Selected()[def.id] and true or false)
+				for _, box in ipairs(row.options) do box:Hide() end
+				local kind = ns.TARGETS[def.target]
+				if kind then
+					local choice = ns.TargetChoice(def)
+					for k, option in ipairs(kind.order) do
+						local box = OptionBox(row, k)
+						box.option = option
+						box.Text:SetText(T.opt[option])
+						box:SetChecked(choice[option] and true or false)
+						box:Show()
+					end
+				end
 				row:ClearAllPoints(); row:SetPoint("TOPLEFT", 8, y); row:Show()
 				y = y - ROW
 			end
@@ -158,7 +246,7 @@ end
 
 local function Build()
 	frame = CreateFrame("Frame", "ForeverMacrosFrame", UIParent, "BasicFrameTemplateWithInset")
-	frame:SetSize(480, 580)
+	frame:SetSize(600, 600)
 	frame:SetPoint("CENTER")
 	frame:SetFrameStrata("DIALOG")
 	frame:SetClampedToScreen(true)
@@ -174,7 +262,7 @@ local function Build()
 	scroll:SetPoint("TOPLEFT", 12, -30)
 	scroll:SetPoint("BOTTOMRIGHT", -34, 84)
 	content = CreateFrame("Frame", nil, scroll)
-	content:SetSize(420, 10)
+	content:SetSize(540, 10)
 	scroll:SetScrollChild(content)
 
 	local hint = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
