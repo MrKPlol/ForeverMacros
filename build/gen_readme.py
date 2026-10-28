@@ -43,8 +43,10 @@ add = lines.append
 total = len(MACROS) + len(RACIALS) + len(UTILITY)
 add("# ForeverMacros")
 add("")
-add("Fertige Klassen-, Rassen- und Utility-Makros für **WoW Forever (1.60.1)**, mit einem Klick eingebaut.  ")
-add("Ready-made class, race and utility macros for **WoW Forever (1.60.1)**, installed with one click.")
+add("Fertige Klassen-, Rassen- und Utility-Makros für **WoW Forever (1.60.1)**, mit einem Klick eingebaut, dazu ein Makro "
+    "pro gelerntem Zauber mit Ziel- und Extra-Haken.  ")
+add("Ready-made class, race and utility macros for **WoW Forever (1.60.1)**, installed with one click, plus one macro per "
+    "learned spell built from target and extra boxes.")
 add("")
 add("## Installation")
 add("")
@@ -63,6 +65,16 @@ add("- **Ziel-Optionen:** hinter vielen Makros sitzen kleine Kästchen: **MO** (
     "bzw. bei Boden-Zaubern und Bomben **Maus** (sofort an der Mausposition) oder **Ich** (unter dir). Es gibt nur die Optionen, "
     "die der Zauber oder Gegenstand in Forever zulässt. Die Liste unten zeigt die Standard-Auswahl.")
 add("- Kästchen am **Gruppenkopf** hakt die ganze Kategorie an oder ab.")
+add("- **Zwei Reiter:** **Fertige Makros** (die Liste unten: nur Makros, die mehr als einen Zauber kombinieren) und "
+    "**Zauber-Makros**: ein Makro pro gelerntem Zauber deiner Klasse, sortiert nach Talentbaum. Dahinter dieselben Ziel-Kästchen "
+    "und, je nachdem was der Zauber in Forever kann:")
+add("  - **Haltung** (Krieger): wechselt erst in eine passende Haltung, z. B. `/cast [nostance:1/3] Battle Stance` vor Hinrichten.")
+add("  - **Gestalt** (Druide): Katzen-/Bärenfähigkeiten gehen erst in die Gestalt (`/cast !Cat Form`), Zauber verlassen sie (`/cancelform`).")
+add("  - **Stop** (`/stopcasting`), **Schmuck** (`/use 13`, `/use 14`), **Angriff** (`/startattack`, Nahkampfklassen).")
+add("  - **Spam:** kanalisierte Zauber bekommen `[nochanneling]`, Umschalt-Zauber (Gestalten, Schleichen, Aspekte, Auto Shot) ein `!`, "
+    "damit wiederholtes Drücken nichts abbricht.")
+add("  - Haltung und Gestalt lösen die globale Abklingzeit aus: danach die Taste ein zweites Mal drücken.")
+add("  - Zauber-Makros liegen im Charakter-Tab (max. 30 Plätze) und bekommen ihren Rang genauso automatisch nachgezogen.")
 add("- **Ingenieurskunst:** alle Gegenstände mit Benutzen-Effekt aus den Forever-Tabellen geprüft, dazu die neuen Gürtel-Tinker "
     "(Teleport, Nitro Boosts, Magnetic Displacement) über `/use 6`.")
 add("- Überschreibt **nie** Makros, die du selbst angelegt oder geändert hast, und ändert nichts im Kampf.")
@@ -116,13 +128,16 @@ add("- `build/macros.py`: die Makros (`{Zauber}`, `{=Zauber}` ohne Rang, `{A|B}`
 add("- `python3 -I build/build.py db ForeverMacros/Data.lua`: prüft jeden Namen gegen die Client-Tabellen von 1.60.1.70532 "
     "(CSV von wago.tools in `db/`) und jede Länge (255 Zeichen im ungünstigsten Fall) und schreibt `Data.lua`.")
 add("- `python3 -I build/gen_readme.py README.md`: erzeugt diese README.")
+add("- `python3 -I build/gen_fixtures.py db ForeverMacros/Data.lua test/fixtures.lua`: Zauber- und Gegenstandsnamen (en/de) für den Test.")
 add("- `cd test && luajit test.lua ../ForeverMacros`: Test mit nachgebauter WoW-API (alle Klassen, Deutsch/Englisch, niedrige/hohe Ränge).")
 add("")
 add("## Quellen / Credits")
 add("")
 add("Makrotexte angepasst nach / macro texts adapted from [Classic WoW Forever](https://classicwowforever.com/macros/) "
     "([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)) und [Zockify](https://www.zockify.com/forever/druid/macros/). "
-    "Änderungen: Namen aus IDs lokalisiert, Ränge automatisch, einige Makros gekürzt. Details: `ForeverMacros/CREDITS.txt`.")
+    "Änderungen: Namen aus IDs lokalisiert, Ränge automatisch, einige Makros gekürzt. Details: `ForeverMacros/CREDITS.txt`.  ")
+add("Idee des Zauber-Reiters nach / spell tab idea from [Macro Spellbook](https://github.com/notstraws/MacroSpellbook) (MIT); "
+    "eigener Code, nichts übernommen.")
 add("")
 open(sys.argv[1], "w", encoding="utf-8").write("\n".join(lines))
 print("README:", total, "macros,", len(lines), "lines")

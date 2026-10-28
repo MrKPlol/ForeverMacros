@@ -323,40 +323,21 @@ do
 	local queued = #W.timers
 	check(queued == 1, "50 UPDATE_MACROS coalesce into one refresh, got " .. queued)
 	runTimers()
-	-- target option boxes: Rejuvenation (help) shows MO/Focus/Target/Self, ticking Focus changes the body
-	local rejuv, rejuvDef
-	for _, cb in ipairs(cbs) do if cb.def.id == "dru_rejuv" then rejuv, rejuvDef = cb, cb.def end end
+	-- target option boxes: Rejuvenation/Regrowth (help) shows MO/Focus/Target/Self, ticking Focus changes the body
+	local hots, hotsDef
+	for _, cb in ipairs(cbs) do if cb.def.id == "dru_hots" then hots, hotsDef = cb, cb.def end end
 	local boxes = {}
-	for _, b in ipairs(rejuv.options) do if b:IsShown() then boxes[b.option] = b end end
+	for _, b in ipairs(hots.options) do if b:IsShown() then boxes[b.option] = b end end
 	check(boxes.mo and boxes.focus and boxes.tgt and boxes.self and not boxes.cursor, "help macro offers mo/focus/target/self")
 	check(boxes.mo:GetChecked() and not boxes.focus:GetChecked(), "help default: mouseover on, focus off")
-	check(ns.Render(rejuvDef):find("[@mouseover,help,nodead][help,nodead][@player]", 1, true), "default help body: " .. ns.Render(rejuvDef))
+	check(ns.Render(hotsDef):find("; [@mouseover,help,nodead][help,nodead][@player] ", 1, true), "default help body: " .. ns.Render(hotsDef))
 	boxes.focus:Click(); boxes.mo:Click(); boxes.self:Click()
-	local b = ns.Render(rejuvDef)
-	check(b:find("/cast [@focus,help,nodead][help,nodead] ", 1, true), "focus+target body: " .. b)
-	check(ForeverMacrosCharDB.selected.dru_rejuv == true, "changed macro gets selected")
+	local b = ns.Render(hotsDef)
+	check(b:find("; [@focus,help,nodead][help,nodead] ", 1, true) and b:find("[mod:shift,@focus,help,nodead]", 1, true), "focus+target body: " .. b)
+	check(ForeverMacrosCharDB.selected.dru_hots == true, "changed macro gets selected")
 	boxes.focus:Click(); boxes.tgt:Click()
-	check(ns.Render(rejuvDef):find("/cast Verjüngung") or ns.Render(rejuvDef):find("/cast Rejuv"), "no option: plain cast without double space: " .. ns.Render(rejuvDef))
-	check(not ns.Render(rejuvDef):find("  "), "no double space")
-	-- ground: cursor and self exclude each other
-	local hur
-	for _, cb in ipairs(cbs) do if cb.def.id == "dru_hurricane" then hur = cb end end
-	local gb = {}
-	for _, x in ipairs(hur.options) do if x:IsShown() then gb[x.option] = x end end
-	check(gb.cursor and gb.self and not gb.mo, "ground offers cursor/self only")
-	gb.self:Click()
-	local hb = ns.Render(hur.def)
-	check(hb:find("[@player]", 1, true) and not hb:find("@cursor"), "ground self replaces cursor: " .. hb)
-	-- installed macro whose option changed shows the changed status, install updates it
-	for _, cb in ipairs(cbs) do if cb.def.id ~= "dru_hurricane" then ForeverMacrosCharDB.selected[cb.def.id] = nil end end
-	ForeverMacrosCharDB.selected.dru_hurricane = true
-	install._scripts.OnClick(install); runTimers()
-	gb.cursor:Click(); runTimers()
-	check(hur.status:GetText():find("neu einbauen"), "changed status shown: " .. tostring(hur.status:GetText()))
-	install._scripts.OnClick(install); runTimers()
-	local found
-	for _, m in ipairs(W.char) do if m.body:find("@cursor") and m.body:find("Hurrikan") then found = true end end
-	check(found, "reinstall writes the cursor version")
+	check(ns.Render(hotsDef):find("/cast [mod:shift] Nachwachsen; Verjüngung", 1, true), "no option: plain casts: " .. ns.Render(hotsDef))
+	check(not ns.Render(hotsDef):find("  "), "no double space")
 	-- category box selects the whole group
 	local header
 	for _, fr in ipairs(frames) do if rawget(fr, "group") == "engineering" and fr._shown then header = fr end end
@@ -372,6 +353,121 @@ do
 	end
 	SlashCmdList.FOREVERMACROS(""); check(not f:IsShown(), "/macros toggles")
 	fire("PLAYER_REGEN_DISABLED")
+end
+
+-- ------------------------------------------------------------------------------------------------ spell tab
+local ALL_TARGETS = { mo = true, focus = true, tgt = true, self = true }
+
+-- every spell of every class, with every target option and every extra on, fits and renders cleanly
+for _, locale in ipairs({ "deDE", "enUS" }) do
+	for _, class in ipairs(CLASSES) do
+		for _, everyRank in ipairs({ false, true }) do
+			reset(locale, class); local ns = loadAddon(); W.known = knownFor(ns, class, everyRank)
+			local tag = locale .. "/" .. class .. (everyRank and "/max" or "/low") .. "/spell"
+			local defs, names = ns.SpellDefinitions(), {}
+			check(#defs > 20, tag .. ": spell rows " .. #defs)
+			for _, def in ipairs(defs) do
+				local name = ns.MacroName(def)
+				check(#name >= 1 and #name <= 16, tag .. ": bad name " .. name)
+				check(not names[name], tag .. ": duplicate name " .. name); names[name] = true
+				for _, groundOption in ipairs({ "cursor", "self" }) do
+					ForeverMacrosCharDB.targets[def.id] = def.target == "ground" and { [groundOption] = true } or ALL_TARGETS
+					for _, option in ipairs(ns.EXTRAS) do if ns.Offers(def, option) then ns.SetExtra(def, option, true) end end
+					local body = ns.Render(def)
+					check(body ~= nil, tag .. ": render failed with everything on: " .. def.id)
+					if body then
+						check(#body <= 255, tag .. ": " .. def.id .. " too long " .. #body)
+						check(not body:find("[{}]"), tag .. ": unreplaced token in " .. def.id .. ": " .. body)
+						check(not body:find("  ") and not body:find("%[%]"), tag .. ": bad spacing in " .. def.id .. ": " .. body)
+					end
+				end
+				ForeverMacrosCharDB.targets[def.id] = nil; ForeverMacrosCharDB.extras[def.id] = nil
+				local plain = ns.Render(def)
+				check(plain and plain:find("^#showtooltip\n/cast "), tag .. ": plain spell macro " .. def.id .. ": " .. tostring(plain))
+			end
+			-- installing more than fits fills the character tab and reports the rest
+			local done; ns.Install(defs, function(r) done = r end); runTimers()
+			check(done and #done.failed == 0 and done.created == math.min(#defs, 30) and #W.char <= 30, tag .. ": spell install")
+		end
+	end
+end
+
+local function spellDef(ns, key) for _, d in ipairs(ns.SpellDefinitions()) do if d.key == key then return d end end end
+
+-- what the extras write
+do
+	reset("deDE", "DRUID"); local ns = loadAddon(); W.known = knownFor(ns, "DRUID", true)
+	local shred = spellDef(ns, "DRUID:Shred")
+	check(shred and ns.Offers(shred, "form") and ns.Offers(shred, "attack") and not ns.Offers(shred, "spam"), "Shred offers form/attack, no spam")
+	ns.SetExtra(shred, "form", true); ns.SetExtra(shred, "attack", true)
+	local b = ns.Render(shred)
+	check(b:find("^#showtooltip\n/cast !Katzengestalt\n/cast %[@mouseover,harm,nodead%]%[harm,nodead%] Schreddern\n/startattack$"), "Shred with form+attack: " .. b)
+	local hur = spellDef(ns, "DRUID:Hurricane")
+	ns.SetExtra(hur, "spam", true); ns.SetExtra(hur, "form", true)
+	b = ns.Render(hur)
+	check(b:find("/cancelform\n/cast [nochanneling,@cursor] Hurrikan", 1, true), "Hurricane spam+cancelform: " .. b)
+	ns.SetExtra(hur, "stop", true)
+	check(ns.Render(hur):find("/stopcasting [nochanneling]\n", 1, true), "stop never cuts the spammed channel: " .. ns.Render(hur))
+	local prowl = spellDef(ns, "DRUID:Prowl")
+	ns.SetExtra(prowl, "spam", true); ns.SetExtra(prowl, "form", true)
+	check(ns.Render(prowl):find("/cast !Katzengestalt\n/cast !Schleichen", 1, true), "Prowl spam-safe: " .. ns.Render(prowl))
+	local bash = spellDef(ns, "DRUID:Bash")
+	ns.SetExtra(bash, "form", true)
+	check(ns.Render(bash):find("/cast !Terrorbärengestalt\n", 1, true), "Bash shifts into Dire Bear Form: " .. ns.Render(bash))
+
+	reset("enUS", "WARRIOR"); ns = loadAddon(); W.known = knownFor(ns, "WARRIOR", true)
+	local execute = spellDef(ns, "WARRIOR:Execute")
+	check(not ns.Offers(execute, "stop"), "warriors get no stopcasting")
+	ns.SetExtra(execute, "stance", true); ns.SetExtra(execute, "trinket", true)
+	b = ns.Render(execute)
+	check(b:find("^#showtooltip\n/cast %[nostance:1/3%] Battle Stance\n/use 13\n/use 14\n/cast "), "Execute with stance+trinkets: " .. b)
+	local overpower = spellDef(ns, "WARRIOR:Overpower")
+	ns.SetExtra(overpower, "stance", true)
+	check(ns.Render(overpower):find("[nostance:1] Battle Stance", 1, true), "Overpower: battle only")
+
+	reset("enUS", "MAGE"); ns = loadAddon(); W.known = knownFor(ns, "MAGE", true)
+	for _, d in ipairs(ns.SpellDefinitions()) do check(not ns.Offers(d, "attack") and not ns.Offers(d, "form"), "mage has no attack/form: " .. d.id) end
+end
+
+-- spell tab in the window: switch tabs, tick, install, rank upkeep
+do
+	reset("deDE", "DRUID"); local ns = loadAddon()
+	local ids = ns.SPELLS["DRUID:Shred"]; table.sort(ids)
+	W.known = knownFor(ns, "DRUID", false)
+	ns.Toggle()
+	local f = _G.ForeverMacrosFrame
+	local tabSpell, install
+	for _, fr in ipairs(frames) do
+		if fr._kind == "Button" and rawget(fr, "tab") == "spell" then tabSpell = fr end
+		if fr._kind == "Button" and (fr._text or ""):find("Einbauen") then install = fr end
+	end
+	check(tabSpell and tabSpell:IsEnabled(), "spell tab button")
+	tabSpell:Click()
+	check(ForeverMacrosCharDB.tab == "spell" and not tabSpell:IsEnabled(), "spell tab active")
+	local row
+	for _, fr in ipairs(frames) do if fr._kind == "CheckButton" and fr._shown and type(rawget(fr, "def")) == "table" and fr.def.id == "sp:DRUID:Shred" then row = fr end end
+	check(row ~= nil, "Shred row in the spell tab")
+	if row then
+		check(row.extras.form and row.extras.form:IsShown() and not (row.extras.stop and row.extras.stop:IsShown()), "Shred row: form box shown, no stop box")
+		row.extras.form:Click()
+		check(ForeverMacrosCharDB.extras["sp:DRUID:Shred"].form and ForeverMacrosCharDB.selected["sp:DRUID:Shred"], "form ticked, row selected")
+		install._scripts.OnClick(install); runTimers()
+		local made
+		for _, m in ipairs(W.char) do if m.name == "Schreddern" then made = m end end
+		check(made and made.body:find("Schreddern%(Rang 1%)"), "Shred installed with rank 1: " .. tostring(made and made.body))
+		check(row.status:GetText():find("eingebaut"), "installed status: " .. tostring(row.status:GetText()))
+		for _, id in ipairs(ids) do W.known[id] = true end
+		fire("SPELLS_CHANGED"); runTimers()
+		check(made.body:find("/cast !Katzengestalt\n", 1, true) and not made.body:find("Rang"), "rank upkeep raises the spell macro: " .. made.body)
+	end
+	local tabReady
+	for _, fr in ipairs(frames) do if fr._kind == "Button" and rawget(fr, "tab") == "ready" then tabReady = fr end end
+	tabReady:Click()
+	check(ForeverMacrosCharDB.tab == nil, "back to ready-made tab")
+	local stillSpell = false
+	for _, fr in ipairs(frames) do if fr._kind == "CheckButton" and fr._shown and type(rawget(fr, "def")) == "table" and fr.def.scope == "spell" then stillSpell = true end end
+	check(not stillSpell, "ready-made tab lists no spell rows")
+	f:Hide()
 end
 
 print(("%d checks, %d failures"):format(checks, failures))

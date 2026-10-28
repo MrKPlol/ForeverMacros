@@ -1,4 +1,5 @@
--- ForeverMacros window: pick macros, see what each one will be, install the selection with one click.
+-- ForeverMacros window: pick macros, see what each one will be, install the selection with one click. Two tabs:
+-- ready-made macros, and spell macros (one per learned spell, built from ticked options).
 local ADDON, ns = ...
 
 local T = ns.DE and {
@@ -21,6 +22,20 @@ local T = ns.DE and {
 	slots = "Charakter %d/%d   Allgemein %d/%d", charTab = "Tab: Charakter", accountTab = "Tab: Allgemein (alle Charaktere)",
 	combat = "Im Kampf gesperrt", empty = "Nichts ausgewählt.",
 	hint = "Klasse, Rasse und Sets landen im Charakter-Tab, alles andere im allgemeinen Tab.",
+	tabReady = "Fertige Makros", tabSpell = "Zauber-Makros",
+	hintSpell = "Ein Makro pro gelerntem Zauber, mit den Haken dahinter. Landet im Charakter-Tab (max. 30 Plätze).",
+	extra = { stance = "Haltung", form = "Gestalt", stop = "Stop", trinket = "Schmuck", spam = "Spam", attack = "Angriff" },
+	extraTip = {
+		stance = "Wechselt erst in die passende Haltung. Danach nochmal drücken (die Haltung löst die globale Abklingzeit aus).",
+		formCat = "Geht erst in Katzengestalt, falls nötig. Danach nochmal drücken.",
+		formBear = "Geht erst in Bärengestalt, falls nötig. Danach nochmal drücken.",
+		formCaster = "Verlässt vorher jede Gestalt (/cancelform).",
+		stop = "Bricht deinen laufenden Zauber ab (/stopcasting).",
+		trinket = "Zündet beide Schmuckstücke mit (/use 13, /use 14).",
+		spamChannel = "Tut nichts, solange du kanalisierst: Taste kann gespammt werden.",
+		spamToggle = "Nochmal drücken schaltet es nicht wieder ab (!).",
+		attack = "Startet danach den Nahkampf (/startattack).",
+	},
 } or {
 	title = "ForeverMacros", all = "All", none = "None", install = "Install (%d)",
 	class = "Class: %s", race = "Race", general = "General", equip = "Equipment",
@@ -41,16 +56,35 @@ local T = ns.DE and {
 	slots = "Character %d/%d   General %d/%d", charTab = "Tab: Character", accountTab = "Tab: General (all characters)",
 	combat = "Locked in combat", empty = "Nothing selected.",
 	hint = "Class, race and set macros go to the character tab, everything else to the general tab.",
+	tabReady = "Ready-made", tabSpell = "Spell macros",
+	hintSpell = "One macro per learned spell, with the boxes behind it. Goes to the character tab (30 slots).",
+	extra = { stance = "Stance", form = "Form", stop = "Stop", trinket = "Trinket", spam = "Spam", attack = "Attack" },
+	extraTip = {
+		stance = "Switches to a fitting stance first. Press again afterwards (the stance starts the global cooldown).",
+		formCat = "Shifts into Cat Form first if needed. Press again afterwards.",
+		formBear = "Shifts into Bear Form first if needed. Press again afterwards.",
+		formCaster = "Leaves any form first (/cancelform).",
+		stop = "Cancels your current cast (/stopcasting).",
+		trinket = "Uses both trinkets too (/use 13, /use 14).",
+		spamChannel = "Does nothing while you channel: the key can be spammed.",
+		spamToggle = "Pressing again does not switch it off (!).",
+		attack = "Starts melee auto-attack afterwards (/startattack).",
+	},
 }
 
 local ORDER = { "class", "race", "general", "equip", "quests", "engineering", "professions", "sets" }
 local ROW, HEADER = 24, 26
 local OPT_X, OPT_W, STATUS_X = 190, 62, 440   -- target option boxes and status column, from the row's left edge
+local EXTRA_X, EXTRA_W = 444, 70              -- spell tab: extra option columns, status after them
+local WIDTH = 600                             -- ready-made tab; the spell tab widens to fit its columns
 
-local frame, content, installButton, slotText
-local rows, headers, defs, byGroup = {}, {}, {}, {}
+local frame, content, installButton, slotText, hint, tabButtons
+local rows, headers, defs, byGroup, groupOrder = {}, {}, {}, {}, {}
+
+local function Tab() return ForeverMacrosCharDB.tab == "spell" and "spell" or "ready" end
 
 local function GroupOf(def)
+	if def.scope == "spell" then return def.group end
 	if def.scope == "class" or def.scope == "race" or def.scope == "set" then return def.scope == "set" and "sets" or def.scope end
 	return def.group
 end
@@ -113,8 +147,7 @@ local function Row(i)
 	row.Text:SetWordWrap(false)
 	row.Text:SetJustifyH("LEFT")
 	row.status = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-	row.status:SetPoint("LEFT", row, "LEFT", STATUS_X, 0)
-	row.options = {}
+	row.options, row.extras = {}, {}
 	row:SetScript("OnClick", function(self)
 		Selected()[self.def.id] = self:GetChecked() and true or nil
 		UpdateFooter()
@@ -158,6 +191,41 @@ local function OptionBox(row, i)
 	return box
 end
 
+local function ShowExtraTooltip(box)
+	local def, option = box.row.def, box.option
+	local tip = T.extraTip[option]
+	if option == "form" then
+		tip = def.flags:find("f") and T.extraTip.formCat or def.flags:find("b") and T.extraTip.formBear or T.extraTip.formCaster
+	elseif option == "spam" then
+		tip = def.flags:find("c") and T.extraTip.spamChannel or T.extraTip.spamToggle
+	end
+	GameTooltip:SetOwner(box, "ANCHOR_RIGHT")
+	GameTooltip:AddLine(T.extra[option])
+	GameTooltip:AddLine(tip, 1, 1, 1, true)
+	GameTooltip:Show()
+end
+
+-- Spell tab: one box per extra option the spell offers, in a fixed column per option.
+local function ExtraBox(row, option)
+	local box = row.extras[option]
+	if box then return box end
+	box = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
+	box:SetSize(18, 18)
+	box.Text:SetFontObject("GameFontHighlightSmall")
+	box.Text:SetText(T.extra[option])
+	box.row, box.option = row, option
+	box:SetScript("OnClick", function(self)
+		local def = self.row.def
+		ns.SetExtra(def, self.option, self:GetChecked())
+		Selected()[def.id] = true   -- a changed macro must be installed again to take effect
+		Refresh()
+	end)
+	box:SetScript("OnEnter", ShowExtraTooltip)
+	box:SetScript("OnLeave", function() GameTooltip:Hide() end)
+	row.extras[option] = box
+	return box
+end
+
 local function GroupDefs(group) return byGroup[group] or {} end
 
 local function Header(i)
@@ -183,26 +251,50 @@ local function QueueRefresh()
 	C_Timer.After(0.2, function() refreshQueued = false; Refresh() end)
 end
 
+local function LineName(id)
+	local names = ns.LINES[id]
+	return names and (ns.DE and names[1] or names[2]) or tostring(id)
+end
+
 function Refresh()
 	if not frame or not frame:IsShown() then return end
-	defs = ns.Definitions()
+	local spellTab = Tab() == "spell"
+	defs = spellTab and ns.SpellDefinitions() or ns.Definitions()
 	wipe(byGroup)
+	wipe(groupOrder)
 	for _, def in ipairs(defs) do
 		local group = GroupOf(def)
-		byGroup[group] = byGroup[group] or {}
+		if not byGroup[group] then byGroup[group] = {}; groupOrder[#groupOrder + 1] = group end
 		table.insert(byGroup[group], def)
 	end
+	-- spell tab: skill lines and spells in alphabetical order of what the player reads
+	local columns = {}
+	if spellTab then
+		table.sort(groupOrder, function(a, b) return LineName(a) < LineName(b) end)
+		for _, list in pairs(byGroup) do table.sort(list, function(a, b) return ns.MacroName(a) < ns.MacroName(b) end) end
+		for _, option in ipairs(ns.EXTRAS) do
+			for _, def in ipairs(defs) do
+				if ns.Offers(def, option) then columns[#columns + 1] = option; break end
+			end
+		end
+	end
+	local statusX = spellTab and EXTRA_X + #columns * EXTRA_W or STATUS_X
+	local width = spellTab and math.max(WIDTH, statusX + 150) or WIDTH
+	frame:SetWidth(width)
+	content:SetWidth(width - 60)
+	hint:SetText(spellTab and T.hintSpell or T.hint)
+	for name, button in pairs(tabButtons) do button:SetEnabled(name ~= Tab()) end
 	for _, row in ipairs(rows) do row:Hide() end
 	for _, header in ipairs(headers) do header:Hide() end
 	local y, r, h = -4, 0, 0
 	local className = UnitClass("player")
-	for _, group in ipairs(ORDER) do
+	for _, group in ipairs(spellTab and groupOrder or ORDER) do
 		local list = byGroup[group]
 		if list and #list > 0 then
 			h = h + 1
 			local header = Header(h)
 			header.group = group
-			header.Text:SetText(group == "class" and T.class:format(className or "") or T[group])
+			header.Text:SetText(spellTab and LineName(group) or group == "class" and T.class:format(className or "") or T[group])
 			local all = true
 			for _, def in ipairs(list) do if not Selected()[def.id] then all = false end end
 			header:SetChecked(all)
@@ -217,6 +309,19 @@ function Refresh()
 				row.status:SetText(status or "")
 				row:SetChecked(Selected()[def.id] and true or false)
 				for _, box in ipairs(row.options) do box:Hide() end
+				for _, box in pairs(row.extras) do box:Hide() end
+				if def.scope == "spell" then
+					local on = ns.ExtraChoice(def)
+					for c, option in ipairs(columns) do
+						if ns.Offers(def, option) then
+							local box = ExtraBox(row, option)
+							box:ClearAllPoints(); box:SetPoint("LEFT", row, "LEFT", EXTRA_X + (c - 1) * EXTRA_W, 0)
+							box:SetChecked(on[option] and true or false)
+							box:Show()
+						end
+					end
+				end
+				row.status:ClearAllPoints(); row.status:SetPoint("LEFT", row, "LEFT", statusX, 0)
 				local kind = ns.TARGETS[def.target]
 				if kind then
 					local choice = ns.TargetChoice(def)
@@ -258,18 +363,32 @@ local function Build()
 	if frame.TitleText then frame.TitleText:SetText(T.title) end
 	tinsert(UISpecialFrames, "ForeverMacrosFrame")
 
+	tabButtons = {}
+	local x = 12
+	for _, name in ipairs({ "ready", "spell" }) do
+		local button = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+		button:SetSize(140, 22); button:SetPoint("TOPLEFT", x, -28)
+		button:SetText(name == "spell" and T.tabSpell or T.tabReady)
+		button.tab = name
+		button:SetScript("OnClick", function(self)
+			ForeverMacrosCharDB.tab = self.tab ~= "ready" and self.tab or nil
+			Refresh()
+		end)
+		tabButtons[name] = button
+		x = x + 146
+	end
+
 	local scroll = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
-	scroll:SetPoint("TOPLEFT", 12, -30)
+	scroll:SetPoint("TOPLEFT", 12, -56)
 	scroll:SetPoint("BOTTOMRIGHT", -34, 84)
 	content = CreateFrame("Frame", nil, scroll)
 	content:SetSize(540, 10)
 	scroll:SetScrollChild(content)
 
-	local hint = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	hint = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	hint:SetPoint("BOTTOMLEFT", 14, 62)
 	hint:SetPoint("BOTTOMRIGHT", -14, 62)
 	hint:SetJustifyH("LEFT")
-	hint:SetText(T.hint)
 
 	slotText = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	slotText:SetPoint("BOTTOMLEFT", 14, 42)

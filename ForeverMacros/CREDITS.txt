@@ -5,4 +5,6 @@ Macro texts adapted from:
   Changes: spell and item names are resolved from IDs in the client's language, unranked names are raised to the
   highest rank the character knows, some macros were shortened to stay within 255 characters in every language.
 - Zockify, https://www.zockify.com/forever/druid/macros/ (druid ideas)
+Spell tab idea (one macro per spell with tick boxes): Macro Spellbook by notstraws,
+  https://github.com/notstraws/MacroSpellbook (MIT). Own implementation, no code taken.
 Spell, item and rank data: WoW Forever 1.60.1.70532 client tables (via wago.tools).

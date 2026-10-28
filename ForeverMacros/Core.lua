@@ -1,10 +1,11 @@
 -- ForeverMacros: installs ready-made macros into the macro book (class/race macros per character, utility macros
--- for all characters). Every spell name comes from its spell ID in the client's own language; items load first.
+-- for all characters), and one macro per learned spell with the options the player ticks (spell tab). Every spell name comes from its spell ID in the client's own language; items load first.
 -- On WoW Forever an unranked spell name can resolve to a rank the character has not learned (e.g. a level-46
 -- remake of Charge), so a name the character does not know is written with the highest rank it does know.
 local ADDON, ns = ...
 
 local DE = GetLocale() == "deDE"
+local EN = GetLocale():find("^en") ~= nil
 local L = DE and {
 	combat = "Im Kampf können keine Makros geändert werden.",
 	macroFrame = "Bitte erst Blizzards Makrofenster (/macro) schließen.",
@@ -149,10 +150,68 @@ local function TargetText(def, cond)
 	return table.concat(out)
 end
 
+-- ---------------------------------------------------------------------------------------------------------
+-- Spell tab: one macro per learned spell, written from the options the player ticks
+-- ---------------------------------------------------------------------------------------------------------
+
+-- Extra options in column order. Which a spell offers depends on its class and its flags from build.py:
+-- c channelled, t toggles off when cast again, f/b needs Cat/Bear Form, x druid caster spell, s<n> warrior stances.
+ns.EXTRAS = { "stance", "form", "stop", "trinket", "spam", "attack" }
+local NO_STOP = { WARRIOR = true, ROGUE = true }                                   -- nothing to stop casting
+local MELEE = { WARRIOR = true, ROGUE = true, DRUID = true, PALADIN = true, SHAMAN = true }
+local STANCE_KEYS = { "WARRIOR:Battle Stance", "WARRIOR:Defensive Stance", "WARRIOR:Berserker Stance" }
+
+function ns.Offers(def, option)
+	local flags = def.flags
+	if option == "stance" then return flags:find("s%d") ~= nil end
+	if option == "form" then return flags:find("[fbx]") ~= nil end
+	if option == "stop" then return not NO_STOP[def.class] and not flags:find("[fb]") end   -- feral moves cast nothing
+	if option == "trinket" then return true end
+	if option == "spam" then return flags:find("[ct]") ~= nil end
+	if option == "attack" then return def.target == "harm" and MELEE[def.class] == true end
+	return false
+end
+
+function ns.ExtraChoice(def) return ForeverMacrosCharDB.extras[def.id] or {} end
+
+function ns.SetExtra(def, option, value)
+	local choice = {}
+	for k, v in pairs(ns.ExtraChoice(def)) do choice[k] = v end
+	choice[option] = value or nil
+	ForeverMacrosCharDB.extras[def.id] = next(choice) and choice or nil
+end
+
+-- The macro text with tokens ({T:...}, {S:...}) for ns.Render. Lines before the cast need a second press when they
+-- change form or stance (the change starts the global cooldown).
+local function SpellTemplate(def)
+	local on, flags = ns.ExtraChoice(def), def.flags
+	local function wants(option) return on[option] and ns.Offers(def, option) end
+	local lines = { "#showtooltip" }
+	if wants("stance") then
+		local allowed = flags:match("s(%d+)")
+		lines[#lines + 1] = "/cast [nostance:" .. allowed:gsub("(%d)", "%1/"):sub(1, -2) .. "] {S:" .. STANCE_KEYS[tonumber(allowed:sub(1, 1))] .. "}"
+	end
+	if wants("form") then
+		if flags:find("f") then lines[#lines + 1] = "/cast !{S:DRUID:Cat Form}"
+		elseif flags:find("b") then lines[#lines + 1] = "/cast !{S:DRUID:Dire Bear Form|DRUID:Bear Form}"
+		else lines[#lines + 1] = "/cancelform" end
+	end
+	local spam = wants("spam")
+	local cond = (spam and flags:find("c")) and "nochanneling" or ""
+	-- spam on a channel: stopping would cut the running channel on every press
+	if wants("stop") then lines[#lines + 1] = cond ~= "" and "/stopcasting [nochanneling]" or "/stopcasting" end
+	if wants("trinket") then lines[#lines + 1] = "/use 13"; lines[#lines + 1] = "/use 14" end
+	local spell = ((spam and flags:find("t")) and "!" or "") .. "{S:" .. def.key .. "}"
+	if def.target then lines[#lines + 1] = "/cast {T:" .. def.target .. (cond ~= "" and ":" .. cond or "") .. "} " .. spell
+	else lines[#lines + 1] = "/cast " .. (cond ~= "" and "[" .. cond .. "] " or "") .. spell end
+	if wants("attack") then lines[#lines + 1] = "/startattack" end
+	return table.concat(lines, "\n")
+end
+
 -- Returns body, icon, missing (spell names the character does not know yet), or nil if a spell is unknown to the client.
 function ns.Render(def)
 	local missing, broken, icon = {}, false, nil
-	local body = def.body:gsub("{T:(%a+):?([^}]*)} ?", function(_, cond)
+	local body = (def.scope == "spell" and SpellTemplate(def) or def.body):gsub("{T:(%a+):?([^}]*)} ?", function(_, cond)
 		local text = TargetText(def, cond)
 		return text ~= "" and text .. " " or ""
 	end)
@@ -189,6 +248,11 @@ ns.Cut = Cut
 
 function ns.MacroName(def)
 	if def.macroName then return def.macroName end
+	if def.scope == "spell" then
+		-- build.py shortened names over 16 bytes readably for German and English; other clients cut their own
+		local name = (DE and def.nameDE) or (EN and def.nameEN) or C_Spell.GetSpellName(ns.SPELLS[def.key][1])
+		return Cut(name or def.id)
+	end
 	local name = DE and def.nameDE or def.nameEN
 	if not name and def.scope == "race" then
 		local ref = def.body:match("{S:([^}]+)}")
@@ -224,6 +288,32 @@ function ns.Definitions()
 					body = "/equipset " .. name, icon = iconFileID }
 			end
 		end
+	end
+	return list
+end
+
+local spellDefs = {}   -- id -> def, shared by the window and rank upkeep
+
+local function SpellDef(class, entry)
+	local id = "sp:" .. entry[1]
+	local def = spellDefs[id]
+	if not def then
+		def = { id = id, scope = "spell", class = class, key = entry[1], group = entry[2], target = entry[3] or nil,
+			flags = entry[4], nameDE = entry[5] or nil, nameEN = entry[6] or nil }
+		spellDefs[id] = def
+	end
+	return def
+end
+
+-- Spell-tab rows: every spell of the class the character knows (any rank), one per macro name.
+function ns.SpellDefinitions()
+	local _, class = UnitClass("player")
+	local list, names = {}, {}
+	for _, entry in ipairs(ns.SPELLBOOK[class] or {}) do
+		local def = SpellDef(class, entry)
+		local _, known = SpellText(def.key, true)
+		local name = ns.MacroName(def)
+		if known and not names[name] then names[name] = true; list[#list + 1] = def end
 	end
 	return list
 end
@@ -337,7 +427,7 @@ local syncQueued, syncPending = false, false
 -- Rank upkeep only rewrites a macro when its item names are available in the client's language (else it would
 -- swap localized item names for English ones).
 local function ItemsCached(def)
-	for id in def.body:gmatch("{I:(%d+)}") do
+	for id in (def.body or ""):gmatch("{I:(%d+)}") do
 		if not C_Item.GetItemNameByID(tonumber(id)) then return false end
 	end
 	return true
@@ -379,7 +469,10 @@ events:SetScript("OnEvent", function(self, event, arg)
 		ForeverMacrosCharDB.selected = ForeverMacrosCharDB.selected or {}
 		ForeverMacrosDB.targets = ForeverMacrosDB.targets or {}
 		ForeverMacrosCharDB.targets = ForeverMacrosCharDB.targets or {}
+		ForeverMacrosCharDB.extras = ForeverMacrosCharDB.extras or {}
 		for _, def in ipairs(ns.MACROS) do byId[def.id] = def end
+		local _, class = UnitClass("player")
+		for _, entry in ipairs(ns.SPELLBOOK[class] or {}) do local def = SpellDef(class, entry); byId[def.id] = def end
 		self:UnregisterEvent("ADDON_LOADED")
 		self:RegisterEvent("SPELLS_CHANGED")
 		self:RegisterEvent("PLAYER_REGEN_ENABLED")

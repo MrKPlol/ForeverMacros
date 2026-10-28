@@ -1,7 +1,7 @@
 # ForeverMacros
 
-Fertige Klassen-, Rassen- und Utility-Makros für **WoW Forever (1.60.1)**, mit einem Klick eingebaut.  
-Ready-made class, race and utility macros for **WoW Forever (1.60.1)**, installed with one click.
+Fertige Klassen-, Rassen- und Utility-Makros für **WoW Forever (1.60.1)**, mit einem Klick eingebaut, dazu ein Makro pro gelerntem Zauber mit Ziel- und Extra-Haken.  
+Ready-made class, race and utility macros for **WoW Forever (1.60.1)**, installed with one click, plus one macro per learned spell built from target and extra boxes.
 
 ## Installation
 
@@ -17,18 +17,25 @@ Ready-made class, race and utility macros for **WoW Forever (1.60.1)**, installe
 - Forever hat die Zauberränge neu angelegt: ein Name ohne Rang kann auf einen Rang zeigen, den du noch nicht kannst. Das Addon setzt den **höchsten Rang ein, den du kennst** (z. B. `Charge(Rank 1)`) und zieht ihn beim Leveln automatisch nach.
 - **Ziel-Optionen:** hinter vielen Makros sitzen kleine Kästchen: **MO** (Mouseover), **Fokus**, **Ziel**, **Ich** bzw. bei Boden-Zaubern und Bomben **Maus** (sofort an der Mausposition) oder **Ich** (unter dir). Es gibt nur die Optionen, die der Zauber oder Gegenstand in Forever zulässt. Die Liste unten zeigt die Standard-Auswahl.
 - Kästchen am **Gruppenkopf** hakt die ganze Kategorie an oder ab.
+- **Zwei Reiter:** **Fertige Makros** (die Liste unten: nur Makros, die mehr als einen Zauber kombinieren) und **Zauber-Makros**: ein Makro pro gelerntem Zauber deiner Klasse, sortiert nach Talentbaum. Dahinter dieselben Ziel-Kästchen und, je nachdem was der Zauber in Forever kann:
+  - **Haltung** (Krieger): wechselt erst in eine passende Haltung, z. B. `/cast [nostance:1/3] Battle Stance` vor Hinrichten.
+  - **Gestalt** (Druide): Katzen-/Bärenfähigkeiten gehen erst in die Gestalt (`/cast !Cat Form`), Zauber verlassen sie (`/cancelform`).
+  - **Stop** (`/stopcasting`), **Schmuck** (`/use 13`, `/use 14`), **Angriff** (`/startattack`, Nahkampfklassen).
+  - **Spam:** kanalisierte Zauber bekommen `[nochanneling]`, Umschalt-Zauber (Gestalten, Schleichen, Aspekte, Auto Shot) ein `!`, damit wiederholtes Drücken nichts abbricht.
+  - Haltung und Gestalt lösen die globale Abklingzeit aus: danach die Taste ein zweites Mal drücken.
+  - Zauber-Makros liegen im Charakter-Tab (max. 30 Plätze) und bekommen ihren Rang genauso automatisch nachgezogen.
 - **Ingenieurskunst:** alle Gegenstände mit Benutzen-Effekt aus den Forever-Tabellen geprüft, dazu die neuen Gürtel-Tinker (Teleport, Nitro Boosts, Magnetic Displacement) über `/use 6`.
 - Überschreibt **nie** Makros, die du selbst angelegt oder geändert hast, und ändert nichts im Kampf.
 - `A|B` in der Liste unten heißt: das Addon nimmt den ersten Zauber, den du kannst (z. B. Terrorbärgestalt, sonst Bärengestalt). In der Liste steht jeweils der erste.
 
-## Alle 158 Makros / All 158 macros
+## Alle 124 Makros / All 124 macros
 
 Die Liste zeigt die englischen Namen; im Spiel stehen die Namen deines Clients.  
 The list shows English spell names; in game the addon uses your client's language.
 
 ### Klassen / Classes
 
-<details><summary><b>Druide / Druid</b> (26)</summary>
+<details><summary><b>Druide / Druid</b> (14)</summary>
 
 **Schreddern/Shift / Shred/Shift** – Shred; Shift: Shifting Power (Mana in Energie)
 
@@ -38,7 +45,15 @@ The list shows English spell names; in game the addon uses your client's languag
 /cast [mod:shift] Shifting Power; [harm,nodead] Shred
 ```
 
-**Schleichen / Prowl** – Katzengestalt falls nötig, dann Schleichen (bricht es nicht ab)
+**Powershift** – Gestalt neu betreten (Furor: Energie/Wut, löst Verlangsamungen); Shift: Bär. Steht man danach in Normalgestalt: nochmal drücken
+
+```
+#showtooltip
+/cancelform
+/cast [mod:shift] !Dire Bear Form; !Cat Form
+```
+
+**Katze+Schleichen / Cat+Prowl** – Katzengestalt falls nötig, dann Schleichen (bricht es nicht ab)
 
 ```
 #showtooltip Prowl
@@ -46,7 +61,7 @@ The list shows English spell names; in game the addon uses your client's languag
 /cast !Prowl
 ```
 
-**Spurt / Dash** – Katzengestalt falls nötig, dann Spurt
+**Katze+Spurt / Cat+Dash** – Katzengestalt falls nötig, dann Spurt
 
 ```
 #showtooltip Dash
@@ -54,12 +69,12 @@ The list shows English spell names; in game the addon uses your client's languag
 /cast Dash
 ```
 
-**Katze/Bär / Cat/Bear** – Katze; Shift: Bär (Terrorbär sobald gelernt)
+**Katze/Bär / Cat/Bear** – Katze; Shift: Bär (Terrorbär sobald gelernt). Nochmal drücken wirft dich nicht aus der Gestalt
 
 ```
 #showtooltip [mod:shift] Dire Bear Form; Cat Form
 /dismount
-/cast [mod:shift] Dire Bear Form; Cat Form
+/cast [mod:shift] !Dire Bear Form; !Cat Form
 ```
 
 **Reisen / Travel** – Wasser: Wassergestalt, draußen: Reisegestalt, drinnen: Katze
@@ -70,20 +85,6 @@ The list shows English spell names; in game the addon uses your client's languag
 /cast [swimming] Aquatic Form; [outdoors] Travel Form; Cat Form
 ```
 
-**Feenfeuer / Faerie Fire**
-
-```
-#showtooltip Faerie Fire
-/cast [@mouseover,harm,nodead][harm,nodead] Faerie Fire
-```
-
-**Wilde Attacke / Feral Charge** – Talent
-
-```
-#showtooltip Feral Charge
-/cast [@mouseover,harm,nodead][harm,nodead] Feral Charge
-```
-
 **Baumrinde/NG / Barkskin/NG** – Baumrinde; Shift: Griff der Natur (ohne Formwechsel)
 
 ```
@@ -91,50 +92,20 @@ The list shows English spell names; in game the addon uses your client's languag
 /cast [mod:shift] Nature's Grasp; Barkskin
 ```
 
-**Urbiss / Primal Bite** – Bär, Talent ab 25
+**Verjüng/Nachw. / Rejuv/Regrowth** – Verjüngung; Shift: Nachwachsen (verlässt die Gestalt)
 
 ```
-#showtooltip Primal Bite
-/startattack [harm,nodead]
-/cast [harm,nodead] Primal Bite
-```
-
-**Aufschlitzen / Lacerate** – Terrorbär ab 42
-
-```
-#showtooltip Lacerate
-/cast [@mouseover,harm,nodead][harm,nodead] Lacerate
-```
-
-**Knurren / Growl** – Spott (Bär)
-
-```
-#showtooltip Growl
-/cast [@mouseover,harm,nodead][harm,nodead] Growl
-```
-
-**Verjüngung / Rejuvenation**
-
-```
-#showtooltip Rejuvenation
+#showtooltip
 /cancelform
-/cast [@mouseover,help,nodead][help,nodead][@player] Rejuvenation
+/cast [mod:shift,@mouseover,help,nodead][mod:shift,help,nodead][mod:shift,@player] Regrowth; [@mouseover,help,nodead][help,nodead][@player] Rejuvenation
 ```
 
-**Nachwachsen / Regrowth**
+**Fluch/Gift / Curse/Poison** – Fluch aufheben; Shift: Gift (Vergiftung aufheben, sobald gelernt)
 
 ```
-#showtooltip Regrowth
+#showtooltip
 /cancelform
-/cast [@mouseover,help,nodead][help,nodead][@player] Regrowth
-```
-
-**Heilende Berühr / Healing Touch**
-
-```
-#showtooltip Healing Touch
-/cancelform
-/cast [@mouseover,help,nodead][help,nodead][@player] Healing Touch
+/cast [mod:shift,@mouseover,help,nodead][mod:shift,help,nodead][mod:shift,@player] Abolish Poison; [@mouseover,help,nodead][help,nodead][@player] Remove Curse
 ```
 
 **NS + Heilen / NS + Heal** – Schnelligkeit der Natur + sofortige Heilende Berührung
@@ -147,83 +118,12 @@ The list shows English spell names; in game the addon uses your client's languag
 /cast [@mouseover,help,nodead][help,nodead][@player] Healing Touch
 ```
 
-**Rasche Heilung / Swiftmend** – Talent
-
-```
-#showtooltip Swiftmend
-/cancelform
-/cast [@mouseover,help,nodead][help,nodead][@player] Swiftmend
-```
-
-**Wildwuchs / Wild Growth** – Talent
-
-```
-#showtooltip Wild Growth
-/cancelform
-/cast [@mouseover,help,nodead][help,nodead][@player] Wild Growth
-```
-
-**Fluch aufheben / Remove Curse**
-
-```
-#showtooltip Remove Curse
-/cancelform
-/cast [@mouseover,help,nodead][help,nodead][@player] Remove Curse
-```
-
-**Gift heilen / Cure Poison** – Vergiftung aufheben, sobald gelernt, sonst Vergiftung heilen
-
-```
-#showtooltip
-/cancelform
-/cast [@mouseover,help,nodead][help,nodead][@player] Abolish Poison
-```
-
-**Anregen / Innervate**
-
-```
-#showtooltip Innervate
-/cast [@mouseover,help,nodead][help,nodead][@player] Innervate
-```
-
-**Wiederbeleben / Rebirth/Revive** – Kampf: Wiedergeburt, sonst Wiederbeleben
+**Wiedergeb./Bel. / Rebirth/Revive** – Kampf: Wiedergeburt, sonst Wiederbeleben
 
 ```
 #showtooltip
 /cast [combat,@mouseover,help,dead][combat,help,dead] Rebirth
 /cast [nocombat,@mouseover,help,dead][nocombat,help,dead] Revive
-```
-
-**Mal der Wildnis / Mark of the Wild**
-
-```
-#showtooltip Mark of the Wild
-/cancelform
-/cast [@mouseover,help,nodead][help,nodead][@player] Mark of the Wild
-```
-
-**Dornen / Thorns**
-
-```
-#showtooltip Thorns
-/cancelform
-/cast [@mouseover,help,nodead][help,nodead][@player] Thorns
-```
-
-**Wurzeln / Roots**
-
-```
-#showtooltip Entangling Roots
-/cancelform
-/cast [@mouseover,harm,nodead][harm,nodead] Entangling Roots
-```
-
-**Hurrikan / Hurricane**
-
-```
-#showtooltip Hurricane
-/cancelform
-/cast [@cursor] Hurricane
 ```
 
 **Form weg / Drop form** – Zauber abbrechen, Gestalt verlassen, absitzen
@@ -234,11 +134,27 @@ The list shows English spell names; in game the addon uses your client's languag
 /dismount
 ```
 
+**Urbiss+Zermalmen / Bite+Maul** – Bär: Urbiss und Zermalmen auf den nächsten Schlag; Strg: Wut sparen (ohne Zermalmen)
+
+```
+#showtooltip Primal Bite
+/startattack
+/cast Primal Bite
+/cast [nomod:ctrl] Maul
+```
+
+**Knurren/Gebrüll / Growl/Roar** – Knurren; Strg: Herausforderndes Gebrüll
+
+```
+#showtooltip
+/cast [mod:ctrl] Challenging Roar; [@mouseover,harm,nodead][harm,nodead] Growl
+```
+
 </details>
 
 <details><summary><b>Krieger / Warrior</b> (8)</summary>
 
-**Sturmangriff / Charge**
+**Sturm+Angriff / Charge+Attack**
 
 ```
 #showtooltip Charge
@@ -255,15 +171,7 @@ The list shows English spell names; in game the addon uses your client's languag
 /cast [nocombat,stance:1] Charge; [combat,stance:3] Intercept; [nocombat,nostance:1] Battle Stance; [combat,nostance:3] Berserker Stance
 ```
 
-**Siegesrausch / Victory Rush**
-
-```
-#showtooltip Victory Rush
-/startattack
-/cast Victory Rush
-```
-
-**Berserkerwut / Berserker Rage**
+**Haltung+Wut / Stance+Rage**
 
 ```
 #showtooltip Berserker Rage
@@ -271,7 +179,7 @@ The list shows English spell names; in game the addon uses your client's languag
 /cast Berserker Rage
 ```
 
-**Hinrichten / Execute**
+**Haltung+Hinricht / Stance+Execute**
 
 ```
 #showtooltip Execute
@@ -288,16 +196,6 @@ The list shows English spell names; in game the addon uses your client's languag
 /cast [mod:shift] Cleave; Heroic Strike
 ```
 
-**Blutrausch+Trank / Bloodrage+Pot** – Blutrausch und bester Wuttrank
-
-```
-#showtooltip Bloodrage
-/cast Bloodrage
-/use Mighty Rage Potion
-/use Great Rage Potion
-/use Rage Potion
-```
-
 **Rufe / Shouts** – Schlachtruf; Shift: Demoralisierender Ruf
 
 ```
@@ -305,44 +203,29 @@ The list shows English spell names; in game the addon uses your client's languag
 /cast [mod:shift] Demoralizing Shout; Battle Shout
 ```
 
+**Unterbrechen / Interrupt** – Berserkerhaltung: Zuschlagen, sonst Schildhieb (Schild nötig)
+
+```
+#showtooltip
+/cast [stance:3,@mouseover,harm,nodead][stance:3,harm,nodead] Pummel; [@mouseover,harm,nodead][harm,nodead] Shield Bash
+```
+
+**Spott/Ruf / Taunt/Shout** – Spott; Strg: Herausforderungsruf
+
+```
+#showtooltip
+/cast [mod:ctrl] Challenging Shout; [@mouseover,harm,nodead][harm,nodead] Taunt
+```
+
 </details>
 
-<details><summary><b>Paladin</b> (12)</summary>
-
-**Heiliger Stoß / Holy Strike**
-
-```
-#showtooltip Holy Strike
-/startattack
-/cast Holy Strike
-```
+<details><summary><b>Paladin</b> (4)</summary>
 
 **Schutz / BoP** – Alt: Göttlicher Schutz auf dich
 
 ```
 #showtooltip [mod:alt] Divine Protection; Blessing of Protection
 /cast [mod:alt] Divine Protection; [@mouseover,help,nodead][help,nodead][@player] Blessing of Protection
-```
-
-**Segen: Macht / Bless: Might**
-
-```
-#showtooltip Blessing of Might
-/cast [@mouseover,help,nodead][help,nodead][@player] Blessing of Might
-```
-
-**Segen: Weisheit / Bless: Wisdom**
-
-```
-#showtooltip Blessing of Wisdom
-/cast [@mouseover,help,nodead][help,nodead][@player] Blessing of Wisdom
-```
-
-**Segen: Könige / Bless: Kings**
-
-```
-#showtooltip Blessing of Kings
-/cast [@mouseover,help,nodead][help,nodead][@player] Blessing of Kings
 ```
 
 **Auren / Auras** – Hingabe; Shift: Konzentration; Strg: Vergeltung
@@ -359,14 +242,7 @@ The list shows English spell names; in game the addon uses your client's languag
 /cast [mod:shift] Frost Resistance Aura; [mod:ctrl] Shadow Resistance Aura; Fire Resistance Aura
 ```
 
-**Handauflegung / Lay on Hands**
-
-```
-#showtooltip Lay on Hands
-/cast [@mouseover,help,nodead][help,nodead][@player] Lay on Hands
-```
-
-**Gottesschild / Divine Shield** – Nochmal drücken: Schild beenden
+**Gottesschild+Weg / Bubble+Cancel** – Nochmal drücken: Schild beenden
 
 ```
 #showtooltip Divine Shield
@@ -376,30 +252,9 @@ The list shows English spell names; in game the addon uses your client's languag
 /cast Divine Shield
 ```
 
-**Erlösung / Redemption**
-
-```
-#showtooltip Redemption
-/cast [@mouseover,help,dead][help,dead] Redemption
-```
-
-**Exorzismus / Exorcism**
-
-```
-#showtooltip Exorcism
-/cast [@mouseover,harm,nodead][harm,nodead] Exorcism
-```
-
-**Untote vertr. / Turn Undead**
-
-```
-#showtooltip Turn Undead
-/cast [@mouseover,harm,nodead][harm,nodead] Turn Undead
-```
-
 </details>
 
-<details><summary><b>Jäger / Hunter</b> (14)</summary>
+<details><summary><b>Jäger / Hunter</b> (10)</summary>
 
 **Mal + Pet / Mark + Pet**
 
@@ -407,13 +262,6 @@ The list shows English spell names; in game the addon uses your client's languag
 #showtooltip Hunter's Mark
 /petattack [@mouseover,harm,nodead][harm,nodead] 
 /cast [@mouseover,harm,nodead][harm,nodead] Hunter's Mark
-```
-
-**Tier heilen / Mend Pet**
-
-```
-#showtooltip Mend Pet
-/cast [@pet,exists,nodead] Mend Pet
 ```
 
 **Pet Angriff Ziel / Pet Attack Unit** – Begleiter greift die gewählte Einheit an
@@ -435,14 +283,6 @@ The list shows English spell names; in game the addon uses your client's languag
 ```
 #showtooltip
 /cast [@pet,dead][mod:shift] Revive Pet; [nopet] Call Pet; Mend Pet
-```
-
-**Füttern / Feed Pet** – Essen ggf. im Makro anpassen
-
-```
-#showtooltip Feed Pet
-/cast [pet,nocombat] Feed Pet
-/use [pet,nocombat] Chunk of Boar Meat
 ```
 
 **Falke / Hawk**
@@ -467,7 +307,7 @@ The list shows English spell names; in game the addon uses your client's languag
 /cast [mod:shift] Track Beasts; [mod:ctrl] Track Undead; [mod:alt] Track Hidden; Track Humanoids
 ```
 
-**Totstellen / Feign Death**
+**Totstellen+Stop / Feign+Stop**
 
 ```
 #showtooltip Feign Death
@@ -485,58 +325,27 @@ The list shows English spell names; in game the addon uses your client's languag
 /cancelaura Aspect of the Pack
 ```
 
-**Adlerauge / Eagle Eye**
+**Totst.+Falle / Feign+Trap** – Im Kampf: Totstellen, nochmal drücken: Eiskältefalle
 
 ```
-#showtooltip Eagle Eye
-/cast !Eagle Eye
-```
-
-**Salve / Volley**
-
-```
-#showtooltip Volley
-/cast [@cursor] Volley
-```
-
-**Leuchtfeuer / Flare**
-
-```
-#showtooltip Flare
-/cast [@cursor] Flare
+#showtooltip Freezing Trap
+/petpassive
+/petfollow
+/stopattack
+/cast [combat] Feign Death
+/cast [nocombat] Freezing Trap
 ```
 
 </details>
 
-<details><summary><b>Schurke / Rogue</b> (8)</summary>
+<details><summary><b>Schurke / Rogue</b> (5)</summary>
 
-**Tritt / Kick**
-
-```
-#showtooltip Kick
-/cast [@mouseover,harm,nodead][harm,nodead] Kick
-```
-
-**Kopfnuss / Sap**
-
-```
-#showtooltip Sap
-/cast [@mouseover,harm,nodead][harm,nodead] Sap
-```
-
-**Verstohlenheit / Stealth** – Schaltet sich nicht selbst ab
+**Verstohl. sicher / Stealth (safe)** – Schaltet sich nicht selbst ab
 
 ```
 #showtooltip Stealth
 /dismount
 /cast [nostealth,nocombat] Stealth
-```
-
-**Taschendiebstahl / Pick Pocket**
-
-```
-#showtooltip Pick Pocket
-/cast [@mouseover,harm,nodead][harm,nodead] Pick Pocket
 ```
 
 **Opener** – Taschendiebstahl + Fieser Trick; Shift: Erdrosseln; Strg: Hinterhalt
@@ -574,35 +383,7 @@ The list shows English spell names; in game the addon uses your client's languag
 
 </details>
 
-<details><summary><b>Priester / Priest</b> (9)</summary>
-
-**Magiebannung / Dispel Magic**
-
-```
-#showtooltip Dispel Magic
-/cast [@mouseover,exists,nodead][exists,nodead] Dispel Magic
-```
-
-**Seelenstärke / Fortitude**
-
-```
-#showtooltip Power Word: Fortitude
-/cast [@mouseover,help,nodead][help,nodead][@player] Power Word: Fortitude
-```
-
-**Furchtzauber / Fear Ward**
-
-```
-#showtooltip Fear Ward
-/cast [@mouseover,help,nodead][help,nodead][@player] Fear Ward
-```
-
-**Fesseln / Shackle**
-
-```
-#showtooltip Shackle Undead
-/cast [@mouseover,harm,nodead][harm,nodead] Shackle Undead
-```
+<details><summary><b>Priester / Priest</b> (5)</summary>
 
 **Zauberstab / Wand**
 
@@ -611,14 +392,7 @@ The list shows English spell names; in game the addon uses your client's languag
 /cast !Shoot
 ```
 
-**Auferstehung / Resurrection**
-
-```
-#showtooltip Resurrection
-/cast [@mouseover,help,dead][help,dead] Resurrection
-```
-
-**Levitieren / Levitate** – Shift: abbrechen
+**Levitieren+Weg / Levitate+Off** – Shift: abbrechen
 
 ```
 #showtooltip Levitate
@@ -641,17 +415,17 @@ The list shows English spell names; in game the addon uses your client's languag
 /cast [@mouseover,help,nodead] Lesser Heal; [harm,nodead] Smite; [help,nodead][@player] Lesser Heal
 ```
 
+**Innerer Fokus+ / Inner Focus+** – Innerer Fokus + Große Heilung; Shift: + Gedankenschlag
+
+```
+#showtooltip
+/cast Inner Focus
+/cast [mod:shift] Mind Blast; [@mouseover,help,nodead][help,nodead][@player] Greater Heal
+```
+
 </details>
 
-<details><summary><b>Schamane / Shaman</b> (9)</summary>
-
-**Erdschock Kick / Earth Shock Kick** – Bricht eigenen Zauber für den Kick ab
-
-```
-#showtooltip Earth Shock
-/stopcasting
-/cast [@mouseover,harm,nodead][harm,nodead] Earth Shock
-```
+<details><summary><b>Schamane / Shaman</b> (8)</summary>
 
 **Totems** – Shift: zurückrufen
 
@@ -672,13 +446,6 @@ The list shows English spell names; in game the addon uses your client's languag
 ```
 #showtooltip [mod:shift] Water Shield; Lightning Shield
 /cast [mod:shift] Water Shield; Lightning Shield
-```
-
-**Reinigen / Purge**
-
-```
-#showtooltip Purge
-/cast [@mouseover,harm,nodead][harm,nodead] Purge
 ```
 
 **Schocks / Shocks** – Shift: Flamme; Strg: Frost
@@ -702,31 +469,25 @@ The list shows English spell names; in game the addon uses your client's languag
 /cast [mod:shift,@player] Lesser Healing Wave; [@player] Healing Wave
 ```
 
-**Wasserwandeln / Water Walk** – Shift: Wasseratmung
+**Wasserw./Atmung / WaterWalk/Breath** – Shift: Wasseratmung
 
 ```
 #showtooltip
 /cast [mod:shift,@mouseover,help,nodead][mod:shift,help,nodead][mod:shift,@player] Water Breathing; [@mouseover,help,nodead][help,nodead][@player] Water Walking
 ```
 
+**NS + Heilen / NS + Heal** – Schnelligkeit der Natur + sofortige Welle der Heilung
+
+```
+#showtooltip Nature's Swiftness
+/stopcasting
+/cast Nature's Swiftness
+/cast [@mouseover,help,nodead][help,nodead][@player] Healing Wave
+```
+
 </details>
 
-<details><summary><b>Magier / Mage</b> (14)</summary>
-
-**Gegenzauber / Counterspell**
-
-```
-#showtooltip Counterspell
-/stopcasting
-/cast Counterspell
-```
-
-**Verwandlung / Polymorph**
-
-```
-#showtooltip Polymorph
-/cast [@mouseover,harm,nodead][harm,nodead] Polymorph
-```
+<details><summary><b>Magier / Mage</b> (11)</summary>
 
 **Intelligenz / Intellect** – Shift: Arkane Brillanz
 
@@ -735,18 +496,11 @@ The list shows English spell names; in game the addon uses your client's languag
 /cast [mod:shift,@mouseover,help,nodead][mod:shift,help,nodead][mod:shift,@player] Arcane Brilliance; [@mouseover,help,nodead][help,nodead][@player] Arcane Intellect
 ```
 
-**Magie dämpfen / Dampen Magic** – Shift: Magie verstärken
+**Dämpfen/Verst. / Dampen/Amplify** – Shift: Magie verstärken
 
 ```
 #showtooltip
 /cast [mod:shift,@mouseover,help,nodead][mod:shift,help,nodead][mod:shift,@player] Amplify Magic; [@mouseover,help,nodead][help,nodead][@player] Dampen Magic
-```
-
-**Fluch aufheben / Decurse**
-
-```
-#showtooltip Remove Lesser Curse
-/cast [@mouseover,help,nodead][help,nodead][@player] Remove Lesser Curse
 ```
 
 **Herbeizaubern / Conjure** – Wasser; Shift: Essen
@@ -791,7 +545,7 @@ The list shows English spell names; in game the addon uses your client's languag
 /cast [mod:shift] Portal: Undercity; [mod:ctrl] Portal: Thunder Bluff; Portal: Orgrimmar
 ```
 
-**Langsamer Fall / Slow Fall** – Shift: abbrechen
+**Langs. Fall+Weg / Slow Fall+Off** – Shift: abbrechen
 
 ```
 #showtooltip Slow Fall
@@ -800,30 +554,26 @@ The list shows English spell names; in game the addon uses your client's languag
 /cast [nomod:shift,@player] Slow Fall
 ```
 
-**Blizzard**
+**Eisblock+Weg / Ice Block+Off** – Nochmal drücken: Eisblock beenden
 
 ```
-#showtooltip Blizzard
-/cast [@cursor] Blizzard
+#showtooltip Ice Block
+/cancelaura Ice Block
+/cast Ice Block
 ```
 
-**Flammenstoß / Flamestrike**
+**GG+AM+Pyro / PoM+AP+Pyro** – Geistesgegenwart + Arkane Macht + Pyroschlag (sonst Feuerball)
 
 ```
-#showtooltip Flamestrike
-/cast [@cursor] Flamestrike
+#showtooltip
+/cast Presence of Mind
+/cast Arcane Power
+/cast [@mouseover,harm,nodead][harm,nodead] Pyroblast
 ```
 
 </details>
 
-<details><summary><b>Hexenmeister / Warlock</b> (11)</summary>
-
-**Furcht / Fear**
-
-```
-#showtooltip Fear
-/cast [@mouseover,harm,nodead][harm,nodead] Fear
-```
+<details><summary><b>Hexenmeister / Warlock</b> (12)</summary>
 
 **Dämon zurück / Pet Back**
 
@@ -837,6 +587,28 @@ The list shows English spell names; in game the addon uses your client's languag
 ```
 #showtooltip
 /cast [mod:shift] Summon Imp; [mod:ctrl] Summon Succubus; [mod:alt] Summon Felhunter; Summon Voidwalker
+```
+
+**Teufelsb.+Dämon / FelDom+Summon** – Teufelsbeherrschung, dann Dämon (Tasten wie Dämon rufen)
+
+```
+#showtooltip
+/cast Fel Domination
+/cast [mod:shift] Summon Imp; [mod:ctrl] Summon Succubus; [mod:alt] Summon Felhunter; Summon Voidwalker
+```
+
+**Zaubersperre / Spell Lock** – Teufelsjäger: Unterbrechen (Fokus/Mouseover)
+
+```
+#showtooltip
+/cast [@mouseover,harm,nodead][harm,nodead] Spell Lock
+```
+
+**Magie verschl. / Devour Magic** – Teufelsjäger: Magie bannen, Freund oder Feind
+
+```
+#showtooltip
+/cast [@mouseover,exists,nodead][exists,nodead] Devour Magic
 ```
 
 **Flüche / Curses** – Elemente; Shift: Schwäche; Strg: Tollkühnheit; Alt: Sprachen
@@ -887,18 +659,11 @@ The list shows English spell names; in game the addon uses your client's languag
 /cast Ritual of Summoning
 ```
 
-**Dämonenrüstung / Demon Armor** – Shift: Schattenzauberschutz
+**Rüstung/Schutz / Armor/Ward** – Shift: Schattenzauberschutz
 
 ```
 #showtooltip [mod:shift] Shadow Ward; Demon Armor
 /cast [mod:shift] Shadow Ward; Demon Armor
-```
-
-**Feuerregen / Rain of Fire**
-
-```
-#showtooltip Rain of Fire
-/cast [@cursor] Rain of Fire
 ```
 
 </details>
@@ -1336,8 +1101,10 @@ For every equipment set of your character the window offers a `/equipset <set na
 - `build/macros.py`: die Makros (`{Zauber}`, `{=Zauber}` ohne Rang, `{A|B}` erster bekannter, `<Gegenstand>`).
 - `python3 -I build/build.py db ForeverMacros/Data.lua`: prüft jeden Namen gegen die Client-Tabellen von 1.60.1.70532 (CSV von wago.tools in `db/`) und jede Länge (255 Zeichen im ungünstigsten Fall) und schreibt `Data.lua`.
 - `python3 -I build/gen_readme.py README.md`: erzeugt diese README.
+- `python3 -I build/gen_fixtures.py db ForeverMacros/Data.lua test/fixtures.lua`: Zauber- und Gegenstandsnamen (en/de) für den Test.
 - `cd test && luajit test.lua ../ForeverMacros`: Test mit nachgebauter WoW-API (alle Klassen, Deutsch/Englisch, niedrige/hohe Ränge).
 
 ## Quellen / Credits
 
-Makrotexte angepasst nach / macro texts adapted from [Classic WoW Forever](https://classicwowforever.com/macros/) ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)) und [Zockify](https://www.zockify.com/forever/druid/macros/). Änderungen: Namen aus IDs lokalisiert, Ränge automatisch, einige Makros gekürzt. Details: `ForeverMacros/CREDITS.txt`.
+Makrotexte angepasst nach / macro texts adapted from [Classic WoW Forever](https://classicwowforever.com/macros/) ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)) und [Zockify](https://www.zockify.com/forever/druid/macros/). Änderungen: Namen aus IDs lokalisiert, Ränge automatisch, einige Makros gekürzt. Details: `ForeverMacros/CREDITS.txt`.  
+Idee des Zauber-Reiters nach / spell tab idea from [Macro Spellbook](https://github.com/notstraws/MacroSpellbook) (MIT); eigener Code, nichts übernommen.
